@@ -1,0 +1,65 @@
+﻿@model IEnumerable<TFMS.Models.PerformanceReport>
+
+@{
+    ViewData["Title"] = "Performance Reports";
+}
+
+<h1>Performance Reports</h1>
+
+<p>
+    <a asp-action="Generate">Generate New Report</a>
+</p>
+
+@if (TempData["ReportGeneratedMessage"] != null)
+{
+    <div class="alert alert-success">
+        @TempData["ReportGeneratedMessage"]
+    </div>
+}
+@if (TempData["ReportDeletedMessage"] != null)
+{
+    <div class="alert alert-info">
+        @TempData["ReportDeletedMessage"]
+    </div>
+}
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.ReportType)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.GeneratedOn)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ParametersUsed)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ReportType)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.GeneratedOn)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ParametersUsed)
+                </td>
+                <td>
+                    <a asp-action="Details" asp-route-id="@item.PerformanceId">Details</a> |
+                    @if (User.IsInRole("Fleet Administrator"))
+                    {
+                        @* CRITICAL FIX: Pass PerformanceId, not ReportType *@
+                        <a asp-action="Delete" asp-route-id="@item.PerformanceId">Delete</a>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

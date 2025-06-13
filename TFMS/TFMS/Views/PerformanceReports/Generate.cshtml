@@ -1,0 +1,82 @@
+﻿@model dynamic
+@* Model is dynamic as no specific entity for form input *@
+
+@{
+    ViewData["Title"] = "Generate Performance Report";
+}
+
+<h1>Generate New Performance Report</h1>
+
+<h4>Select Report Type and Date Range</h4>
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="alert alert-danger">
+                <ul>
+                    @foreach (var modelState in ViewData.ModelState.Values)
+                    {
+                        @foreach (var error in modelState.Errors)
+                        {
+                            <li>@error.ErrorMessage</li>
+                        }
+                    }
+                </ul>
+            </div>
+        }
+
+        <h5>Fuel Efficiency Report</h5>
+        <form asp-action="GenerateFuelEfficiencyReport" method="post">
+            <div class="form-group">
+                <label for="FuelStartDate">Start Date:</label>
+                <input type="date" id="FuelStartDate" name="startDate" class="form-control" required />
+            </div>
+            <div class="form-group">
+                <label for="FuelEndDate">End Date:</label>
+                <input type="date" id="FuelEndDate" name="endDate" class="form-control" required />
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Generate Fuel Report" class="btn btn-primary" />
+            </div>
+        </form>
+
+        <h5 class="mt-4">Vehicle Utilization Report</h5>
+        <form asp-action="GenerateVehicleUtilizationReport" method="post">
+            <div class="form-group">
+                <label for="UtilStartDate">Start Date:</label>
+                <input type="date" id="UtilStartDate" name="startDate" class="form-control" required />
+            </div>
+            <div class="form-group">
+                <label for="UtilEndDate">End Date:</label>
+                <input type="date" id="UtilEndDate" name="endDate" class="form-control" required />
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Generate Utilization Report" class="btn btn-primary" />
+            </div>
+        </form>
+
+        <h5 class="mt-4">Maintenance Cost Report</h5>
+        <form asp-action="GenerateMaintenanceCostReport" method="post">
+            <div class="form-group">
+                <label for="MaintenanceStartDate">Start Date:</label>
+                <input type="date" id="MaintenanceStartDate" name="startDate" class="form-control" required />
+            </div>
+            <div class="form-group">
+                <label for="MaintenanceEndDate">End Date:</label>
+                <input type="date" id="MaintenanceEndDate" name="endDate" class="form-control" required />
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Generate Maintenance Report" class="btn btn-primary" />
+            </div>
+        </form>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Index">Back to Report List</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

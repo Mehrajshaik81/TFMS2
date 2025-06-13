@@ -1,0 +1,124 @@
+﻿<!-- Views/PerformanceReports/Details.cshtml (Fixed TargetParameterCountException) -->
+@model TFMS.Models.PerformanceReport
+@using Newtonsoft.Json // For parsing the Data attribute
+@using Newtonsoft.Json.Linq // <<< ADD THIS FOR JArray/JObject support
+
+@{
+    ViewData["Title"] = "Report Details: " + Model.ReportType;
+    dynamic reportData = null; // Keep dynamic for initial deserialization
+    bool isList = false; // Flag to indicate if reportData is a list/array
+    try
+    {
+        if (!string.IsNullOrEmpty(Model.Data))
+        {
+            var parsed = JsonConvert.DeserializeObject(Model.Data);
+            if (parsed is JArray jArray) // If it's a JSON array (list of results)
+            {
+                reportData = jArray;
+                isList = true;
+            }
+            else if (parsed is JObject jObject) // If it's a single JSON object
+            {
+                reportData = jObject;
+                isList = false;
+            }
+            else // Fallback for simple values or unexpected structures
+            {
+                reportData = Model.Data; // Treat as plain string or original JSON string
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        // Handle JSON parsing errors gracefully
+        reportData = "Error parsing report data: " + ex.Message;
+    }
+}
+
+<h1>Report Details</h1>
+
+<div>
+    <h4>Performance Report</h4>
+    <hr />
+    <dl class="row">
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.ReportType)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.ReportType)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.GeneratedOn)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.GeneratedOn)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.ParametersUsed)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.ParametersUsed)
+        </dd>
+    </dl>
+
+    @if (reportData != null)
+    {
+        <h3>Report Data:</h3>
+        @if (reportData is string errorMessage && errorMessage.StartsWith("Error parsing"))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+        else if (isList && reportData is JArray jArrayItems && jArrayItems.Any()) // Handle list of objects
+        {
+            var firstItem = jArrayItems.First() as JObject;
+            if (firstItem != null)
+            {
+                <table class="table table-bordered table-striped mt-3">
+                    <thead>
+                        <tr>
+                            @foreach (var prop in firstItem.Properties())
+                            {
+                                <th>@prop.Name</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (JObject item in jArrayItems)
+                        {
+                            <tr>
+                                @foreach (var prop in item.Properties())
+                                {
+                                    <td>@prop.Value.ToString()</td> @* Access value directly from JProperty *@
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p>The report data is an empty list or contains non-object items.</p>
+            }
+        }
+        else if (reportData is JObject jObjectItem) // Handle single object
+        {
+            <pre><code>@JsonConvert.SerializeObject(jObjectItem, Formatting.Indented)</code></pre>
+        }
+        else // Fallback for any other unexpected data type
+        {
+            <pre><code>@reportData.ToString()</code></pre>
+        }
+    }
+    else
+    {
+        <p>No data available for this report.</p>
+    }
+</div>
+<div>
+    <a asp-action="Index">Back to List</a>
+    @if (User.IsInRole("Fleet Administrator"))
+    {
+        <a asp-action="Delete" asp-route-id="@Model.PerformanceId" class="btn btn-danger float-right">Delete Report</a>
+    }
+</div>
+

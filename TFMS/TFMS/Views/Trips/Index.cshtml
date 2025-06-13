@@ -1,0 +1,108 @@
+﻿@* Corrected namespace: assuming TFMS.Models is now TransportationFleetManagementSystem.Models based on previous discussions *@
+@model IEnumerable<TFMS.Models.Trip>
+
+@{
+    ViewData["Title"] = "Trips";
+}
+
+<h1>Trips</h1>
+
+<p>
+    <a asp-action="Create">Create New Trip</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.Vehicle)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Driver)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.StartLocation)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.EndLocation)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ScheduledStartTime)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ScheduledEndTime)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Status)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.EstimatedDistanceKm)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ActualStartTime)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ActualEndTime)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ActualDistanceKm)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Vehicle!.RegistrationNumber)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Driver!.Email)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.StartLocation)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.EndLocation)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ScheduledStartTime)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ScheduledEndTime)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Status)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.EstimatedDistanceKm)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ActualStartTime)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ActualEndTime)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ActualDistanceKm)
+                </td>
+                <td>
+                    <a asp-action="Details" asp-route-id="@item.TripId">Details</a>
+                    @if (User.IsInRole("Fleet Administrator") || User.IsInRole("Fleet Operator"))
+                    {
+                        <span> | </span>
+
+                        <a asp-action="Edit" asp-route-id="@item.TripId">Edit</a>
+                    }
+                 
+                    @if (User.IsInRole("Fleet Administrator"))
+                    {
+                        <span> | </span>
+
+                        <a asp-action="Delete" asp-route-id="@item.TripId">Delete</a>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
