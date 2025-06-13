@@ -1,12 +1,15 @@
-﻿<!-- Views/PerformanceReports/Details.cshtml (Fixed TargetParameterCountException) -->
-@model TFMS.Models.PerformanceReport
+﻿<!-- Views/PerformanceReports/Details.cshtml (with Charts) -->
+@model TFMS.Models.PerformanceReport 
+@* Ensure this is your correct namespace *@
 @using Newtonsoft.Json // For parsing the Data attribute
-@using Newtonsoft.Json.Linq // <<< ADD THIS FOR JArray/JObject support
+@using Newtonsoft.Json.Linq // For JArray/JObject support
 
 @{
     ViewData["Title"] = "Report Details: " + Model.ReportType;
     dynamic reportData = null; // Keep dynamic for initial deserialization
     bool isList = false; // Flag to indicate if reportData is a list/array
+
+    // Safely parse the JSON data for both display and chart generation
     try
     {
         if (!string.IsNullOrEmpty(Model.Data))
@@ -33,6 +36,9 @@
         // Handle JSON parsing errors gracefully
         reportData = "Error parsing report data: " + ex.Message;
     }
+
+    // Pass the parsed report data (as a JSON string) to JavaScript
+    var reportDataJson = (reportData is JToken) ? reportData.ToString(Formatting.None) : "{}"; // Ensure it's valid JSON string for JS
 }
 
 <h1>Report Details</h1>
@@ -59,6 +65,15 @@
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.ParametersUsed)
         </dd>
+        @if (Model.GeneratedByUser != null)
+        {
+            <dt class="col-sm-2">
+                @Html.DisplayNameFor(model => model.GeneratedByUser)
+            </dt>
+            <dd class="col-sm-10">
+                @Html.DisplayFor(model => model.GeneratedByUser!.Email)
+            </dd>
+        }
     </dl>
 
     @if (reportData != null)
@@ -68,45 +83,57 @@
         {
             <div class="alert alert-danger">@errorMessage</div>
         }
-        else if (isList && reportData is JArray jArrayItems && jArrayItems.Any()) // Handle list of objects
+        else
         {
-            var firstItem = jArrayItems.First() as JObject;
-            if (firstItem != null)
+            @* Add Canvas elements for charts - initially hidden. *@
+            <div class="chart-container mb-4" style="position: relative; height:40vh; width:80vw;">
+                <canvas id="fuelEfficiencyChart" style="display: none;"></canvas>
+                <canvas id="vehicleUtilizationChart" style="display: none;"></canvas>
+                <canvas id="maintenanceCostChart" style="display: none;"></canvas>
+            </div>
+
+            @* Display raw data below charts (optional, for debugging or detailed view) *@
+            <h4 class="mt-4">Raw Data:</h4>
+            @if (isList && reportData is JArray jArrayItems && jArrayItems.Any())
             {
-                <table class="table table-bordered table-striped mt-3">
-                    <thead>
-                        <tr>
-                            @foreach (var prop in firstItem.Properties())
-                            {
-                                <th>@prop.Name</th>
-                            }
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (JObject item in jArrayItems)
-                        {
+                var firstItem = jArrayItems.First() as JObject;
+                if (firstItem != null)
+                {
+                    <table class="table table-bordered table-striped mt-3">
+                        <thead>
                             <tr>
-                                @foreach (var prop in item.Properties())
+                                @foreach (var prop in firstItem.Properties())
                                 {
-                                    <td>@prop.Value.ToString()</td> @* Access value directly from JProperty *@
+                                    <th>@prop.Name</th>
                                 }
                             </tr>
-                        }
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach (JObject item in jArrayItems)
+                            {
+                                <tr>
+                                    @foreach (var prop in item.Properties())
+                                    {
+                                        <td>@prop.Value.ToString()</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p>The report data is an empty list or contains non-object items.</p>
+                }
+            }
+            else if (reportData is JObject jObjectItem)
+            {
+                <pre><code>@JsonConvert.SerializeObject(jObjectItem, Formatting.Indented)</code></pre>
             }
             else
             {
-                <p>The report data is an empty list or contains non-object items.</p>
+                <pre><code>@reportData.ToString()</code></pre>
             }
-        }
-        else if (reportData is JObject jObjectItem) // Handle single object
-        {
-            <pre><code>@JsonConvert.SerializeObject(jObjectItem, Formatting.Indented)</code></pre>
-        }
-        else // Fallback for any other unexpected data type
-        {
-            <pre><code>@reportData.ToString()</code></pre>
         }
     }
     else
@@ -122,3 +149,188 @@
     }
 </div>
 
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> @* Chart.js CDN *@
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const reportType = "@Model.ReportType";
+            const reportDataJsonString = '@Html.Raw(reportDataJson)'; // Get JSON string from C#
+            let parsedData;
+
+            try {
+                parsedData = JSON.parse(reportDataJsonString);
+                if (typeof parsedData === 'string') { // In case it's stringified JSON inside string
+                    parsedData = JSON.parse(parsedData);
+                }
+            } catch (e) {
+                console.error("Error parsing report JSON data:", e);
+                document.querySelector('.chart-container').innerHTML = '<div class="alert alert-danger">Error loading chart data.</div>';
+                return;
+            }
+
+            if (!parsedData || Object.keys(parsedData).length === 0) {
+                document.querySelector('.chart-container').innerHTML = '<div class="alert alert-info">No data available for charting.</div>';
+                return;
+            }
+
+            // Function to create a generic bar chart
+            function createBarChart(canvasId, labels, data, title, xAxisLabel, yAxisLabel, backgroundColor) {
+                const ctx = document.getElementById(canvasId);
+                if (!ctx) return;
+                ctx.style.display = 'block'; // Show the canvas
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: title,
+                            data: data,
+                            backgroundColor: backgroundColor || 'rgba(54, 162, 235, 0.6)',
+                            borderColor: backgroundColor ? backgroundColor.replace('0.6', '1') : 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: title,
+                                font: { size: 18 }
+                            },
+                            legend: {
+                                display: false // Hide legend if only one dataset
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: yAxisLabel
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: xAxisLabel
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Function to create a generic pie/doughnut chart
+            function createPieChart(canvasId, labels, data, title) {
+                const ctx = document.getElementById(canvasId);
+                if (!ctx) return;
+                ctx.style.display = 'block'; // Show the canvas
+
+                const backgroundColors = [
+                    'rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)', 'rgba(255, 206, 86, 0.6)',
+                    'rgba(75, 192, 192, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)',
+                    'rgba(199, 199, 199, 0.6)', 'rgba(83, 102, 255, 0.6)'
+                ];
+                const borderColors = backgroundColors.map(color => color.replace('0.6', '1'));
+
+                new Chart(ctx, {
+                    type: 'doughnut', // Or 'pie'
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: title,
+                            data: data,
+                            backgroundColor: backgroundColors.slice(0, labels.length),
+                            borderColor: borderColors.slice(0, labels.length),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: title,
+                                font: { size: 18 }
+                            },
+                            legend: {
+                                position: 'right',
+                                align: 'center',
+                                labels: {
+                                    boxWidth: 20
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+
+            // --- Chart Rendering Logic based on ReportType ---
+            if (reportType === "Fuel Efficiency Report") {
+                const labels = parsedData.map(item => item.Vehicle);
+                const totalFuelQuantity = parsedData.map(item => item.TotalFuelQuantity);
+                const totalCost = parsedData.map(item => item.TotalCost);
+                const averageCostPerLiter = parsedData.map(item => item.AverageCostPerLiter);
+
+                // Create a bar chart for Total Fuel Quantity
+                createBarChart(
+                    'fuelEfficiencyChart',
+                    labels,
+                    totalFuelQuantity,
+                    'Total Fuel Quantity (L) by Vehicle',
+                    'Vehicle',
+                    'Fuel Quantity (L)',
+                    'rgba(54, 162, 235, 0.6)'
+                );
+
+                // You could add another chart for Total Cost or Average Cost per Liter if desired
+                // For simplicity, we'll start with one per report type.
+
+            } else if (reportType === "Vehicle Utilization Report") {
+                const labels = parsedData.map(item => item.Vehicle);
+                const totalTrips = parsedData.map(item => item.TotalTrips);
+                const totalDistance = parsedData.map(item => item.TotalActualDistanceKm);
+                const totalDuration = parsedData.map(item => item.TotalTripDurationHours);
+
+                // Create a bar chart for Total Trips
+                createBarChart(
+                    'vehicleUtilizationChart',
+                    labels,
+                    totalTrips,
+                    'Total Trips by Vehicle',
+                    'Vehicle',
+                    'Number of Trips',
+                    'rgba(75, 192, 192, 0.6)'
+                );
+
+                // You could add a combined chart for distance/duration if needed
+                
+            } else if (reportType === "Maintenance Cost Report") {
+                const labels = parsedData.map(item => item.Vehicle);
+                const totalMaintenanceCost = parsedData.map(item => item.TotalMaintenanceCost);
+                const numberOfMaintenanceEvents = parsedData.map(item => item.NumberOfMaintenanceEvents);
+
+                // Create a pie chart for Total Maintenance Cost Distribution
+                // Note: Pie chart is better for showing distribution, so labels might be different.
+                // Here, we'll use vehicle names for labels, and their costs for data.
+                createPieChart(
+                    'maintenanceCostChart',
+                    labels,
+                    totalMaintenanceCost,
+                    'Maintenance Cost Distribution by Vehicle'
+                );
+
+            } else {
+                // If report type is not recognized for charting
+                document.querySelector('.chart-container').innerHTML = '<div class="alert alert-warning">No specific chart visualization configured for this report type. Raw data is displayed below.</div>';
+            }
+        });
+    </script>
+}

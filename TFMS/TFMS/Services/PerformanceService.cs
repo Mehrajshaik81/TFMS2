@@ -1,11 +1,13 @@
 ﻿// Services/PerformanceService.cs
 using Microsoft.EntityFrameworkCore;
-using TFMS.Data;
-using TFMS.Models;
+ // Your Models namespace
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Newtonsoft.Json; // For serializing report data to JSON
-using System.Linq; // For LINQ queries
+using System.Linq;
+using TFMS.Data;
+using TFMS.Models;
+using TFMS.Services;
 
 namespace TFMS.Services
 {
@@ -20,13 +22,13 @@ namespace TFMS.Services
 
         public async Task<IEnumerable<PerformanceReport>> GetAllPerformanceReportsAsync()
         {
-            // --- CRITICAL ADDITION: Include GeneratedByUser ---
-            return await _context.PerformanceReports.Include(p => p.GeneratedByUser).ToListAsync();
+            return await _context.PerformanceReports
+                                 .Include(p => p.GeneratedByUser)
+                                 .ToListAsync();
         }
 
         public async Task<PerformanceReport?> GetPerformanceReportByIdAsync(int id)
         {
-            // --- CRITICAL ADDITION: Include GeneratedByUser ---
             return await _context.PerformanceReports
                                  .Include(p => p.GeneratedByUser)
                                  .FirstOrDefaultAsync(m => m.PerformanceId == id);
@@ -53,52 +55,76 @@ namespace TFMS.Services
             return await _context.PerformanceReports.AnyAsync(e => e.PerformanceId == id);
         }
 
-        // --- Report Generation Logic ---
-        // (No changes needed in these methods for GeneratedByUser, as it's set in the controller
-        // before AddPerformanceReportAsync is called, which then saves it.)
-
-        public async Task<PerformanceReport> GenerateFuelEfficiencyReportAsync(DateTime startDate, DateTime endDate)
+        // MODIFIED: Added vehicleId parameter and filtering
+        public async Task<PerformanceReport> GenerateFuelEfficiencyReportAsync(DateTime startDate, DateTime endDate, int? vehicleId = null)
         {
-            var fuelData = await _context.FuelRecords
+            var fuelDataQuery = _context.FuelRecords
                 .Include(f => f.Vehicle)
-                .Where(f => f.Date >= startDate && f.Date <= endDate && f.OdometerReadingKm.HasValue)
-                .ToListAsync();
+                .Where(f => f.Date.HasValue && f.Date.Value.Date >= startDate.Date && f.Date.Value.Date <= endDate.Date && f.OdometerReadingKm.HasValue)
+                .AsQueryable();
 
+            if (vehicleId.HasValue && vehicleId.Value > 0)
+            {
+                fuelDataQuery = fuelDataQuery.Where(f => f.VehicleId == vehicleId.Value);
+            }
+
+            // Execute the query to bring data into memory first
+            var fuelData = await fuelDataQuery.ToListAsync();
+
+            // Now perform GroupBy and Select using LINQ to Objects (supports ?. )
             var fuelEfficiencyResult = fuelData
                 .GroupBy(f => f.Vehicle?.RegistrationNumber ?? "Unknown Vehicle")
-                .Select(g => new
+                .Select(g => new // Simplified new()
                 {
                     Vehicle = g.Key,
-                    TotalFuelQuantity = g.Sum(f => f.FuelQuantity),
-                    TotalCost = g.Sum(f => f.Cost),
-                    AverageCostPerLiter = g.Sum(f => f.FuelQuantity) > 0 ? g.Sum(f => f.Cost) / (decimal)g.Sum(f => f.FuelQuantity) : 0
+                    TotalFuelQuantity = g.Sum(f => f.FuelQuantity ?? 0),
+                    TotalCost = g.Sum(f => f.Cost ?? 0),
+                    AverageCostPerLiter = g.Sum(f => f.FuelQuantity ?? 0) > 0 ? g.Sum(f => f.Cost ?? 0) / (decimal)g.Sum(f => f.FuelQuantity ?? 0) : 0
                 })
                 .OrderBy(x => x.Vehicle)
-                .ToList();
+                .ToList(); // <<< CHANGED ToListAsync() to ToList()
+
+            string parametersUsed = $"From: {startDate:yyyy-MM-dd} To: {endDate:yyyy-MM-dd}";
+            if (vehicleId.HasValue && vehicleId.Value > 0)
+            {
+                var selectedVehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleId == vehicleId.Value);
+                if (selectedVehicle != null)
+                {
+                    parametersUsed += $" | For Vehicle: {selectedVehicle.RegistrationNumber}";
+                }
+            }
 
             var report = new PerformanceReport
             {
                 ReportType = "Fuel Efficiency Report",
                 GeneratedOn = DateTime.UtcNow,
-                ParametersUsed = $"From: {startDate:yyyy-MM-dd} To: {endDate:yyyy-MM-dd}",
+                ParametersUsed = parametersUsed,
                 Data = JsonConvert.SerializeObject(fuelEfficiencyResult, Formatting.Indented)
-                // GeneratedByUserId will be set by the controller before AddPerformanceReportAsync is called
             };
 
-            await AddPerformanceReportAsync(report); // Add to DB immediately
-            return report; // Return the saved report object
+            return report;
         }
 
-        public async Task<PerformanceReport> GenerateVehicleUtilizationReportAsync(DateTime startDate, DateTime endDate)
+        // MODIFIED: Added vehicleId parameter and filtering
+        public async Task<PerformanceReport> GenerateVehicleUtilizationReportAsync(DateTime startDate, DateTime endDate, int? vehicleId = null)
         {
-            var trips = await _context.Trips
+            var tripsQuery = _context.Trips
                 .Include(t => t.Vehicle)
-                .Where(t => t.ScheduledStartTime >= startDate && t.ScheduledStartTime <= endDate && t.ActualEndTime.HasValue)
-                .ToListAsync();
+                .Where(t => t.ScheduledStartTime.HasValue && t.ScheduledStartTime.Value.Date >= startDate.Date && t.ScheduledStartTime.Value.Date <= endDate.Date && t.ActualEndTime.HasValue)
+                .AsQueryable();
 
+            if (vehicleId.HasValue && vehicleId.Value > 0)
+            {
+                tripsQuery = tripsQuery.Where(t => t.VehicleId == vehicleId.Value);
+            }
+
+            // Execute the query to bring data into memory first
+            var trips = await tripsQuery.ToListAsync();
+
+            // Now perform GroupBy and Select using LINQ to Objects (supports ?. )
             var utilizationResult = trips
                 .GroupBy(t => t.Vehicle?.RegistrationNumber ?? "Unknown Vehicle")
-                .Select(g => new
+                .Select(g => new // Simplified new()
                 {
                     Vehicle = g.Key,
                     TotalTrips = g.Count(),
@@ -106,47 +132,75 @@ namespace TFMS.Services
                     TotalTripDurationHours = g.Sum(t => (t.ActualEndTime - t.ActualStartTime)?.TotalHours ?? 0)
                 })
                 .OrderBy(x => x.Vehicle)
-                .ToList();
+                .ToList(); // <<< CHANGED ToListAsync() to ToList()
+
+            string parametersUsed = $"From: {startDate:yyyy-MM-dd} To: {endDate:yyyy-MM-dd}";
+            if (vehicleId.HasValue && vehicleId.Value > 0)
+            {
+                var selectedVehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleId == vehicleId.Value);
+                if (selectedVehicle != null)
+                {
+                    parametersUsed += $" | For Vehicle: {selectedVehicle.RegistrationNumber}";
+                }
+            }
 
             var report = new PerformanceReport
             {
                 ReportType = "Vehicle Utilization Report",
                 GeneratedOn = DateTime.UtcNow,
-                ParametersUsed = $"From: {startDate:yyyy-MM-dd} To: {endDate:yyyy-MM-dd}",
+                ParametersUsed = parametersUsed,
                 Data = JsonConvert.SerializeObject(utilizationResult, Formatting.Indented)
             };
 
-            await AddPerformanceReportAsync(report);
             return report;
         }
 
-        public async Task<PerformanceReport> GenerateMaintenanceCostReportAsync(DateTime startDate, DateTime endDate)
+        // MODIFIED: Added vehicleId parameter and filtering
+        public async Task<PerformanceReport> GenerateMaintenanceCostReportAsync(DateTime startDate, DateTime endDate, int? vehicleId = null)
         {
-            var maintenanceData = await _context.MaintenanceRecords
+            var maintenanceDataQuery = _context.MaintenanceRecords
                 .Include(m => m.Vehicle)
-                .Where(m => m.ActualCompletionDate >= startDate && m.ActualCompletionDate <= endDate && m.Cost.HasValue)
-                .ToListAsync();
+                .Where(m => m.ActualCompletionDate.HasValue && m.ActualCompletionDate.Value.Date >= startDate.Date && m.ActualCompletionDate.Value.Date <= endDate.Date && m.Cost.HasValue)
+                .AsQueryable();
 
+            if (vehicleId.HasValue && vehicleId.Value > 0)
+            {
+                maintenanceDataQuery = maintenanceDataQuery.Where(m => m.VehicleId == vehicleId.Value);
+            }
+
+            // Execute the query to bring data into memory first
+            var maintenanceData = await maintenanceDataQuery.ToListAsync();
+
+            // Now perform GroupBy and Select using LINQ to Objects (supports ?. )
             var maintenanceCostResult = maintenanceData
                 .GroupBy(m => m.Vehicle?.RegistrationNumber ?? "Unknown Vehicle")
-                .Select(g => new
+                .Select(g => new // Simplified new()
                 {
                     Vehicle = g.Key,
                     TotalMaintenanceCost = g.Sum(m => m.Cost ?? 0),
                     NumberOfMaintenanceEvents = g.Count()
                 })
                 .OrderBy(x => x.Vehicle)
-                .ToList();
+                .ToList(); // <<< CHANGED ToListAsync() to ToList()
+
+            string parametersUsed = $"From: {startDate:yyyy-MM-dd} To: {endDate:yyyy-MM-dd}";
+            if (vehicleId.HasValue && vehicleId.Value > 0)
+            {
+                var selectedVehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleId == vehicleId.Value);
+                if (selectedVehicle != null)
+                {
+                    parametersUsed += $" | For Vehicle: {selectedVehicle.RegistrationNumber}";
+                }
+            }
 
             var report = new PerformanceReport
             {
                 ReportType = "Maintenance Cost Report",
                 GeneratedOn = DateTime.UtcNow,
-                ParametersUsed = $"From: {startDate:yyyy-MM-dd} To: {endDate:yyyy-MM-dd}",
+                ParametersUsed = parametersUsed,
                 Data = JsonConvert.SerializeObject(maintenanceCostResult, Formatting.Indented)
             };
 
-            await AddPerformanceReportAsync(report);
             return report;
         }
     }

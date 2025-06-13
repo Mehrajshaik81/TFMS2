@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TFMS")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+df44c7d5fb7cab10b0a537b508c9ed431e9c8546")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9127bc5c4644ec48c6042c11d241fd4ac47abf52")]
 [assembly: System.Reflection.AssemblyProductAttribute("TFMS")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TFMS")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

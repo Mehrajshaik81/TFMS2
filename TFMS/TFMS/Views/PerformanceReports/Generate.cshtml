@@ -1,4 +1,4 @@
-﻿@model dynamic
+﻿@model dynamic 
 @* Model is dynamic as no specific entity for form input *@
 
 @{
@@ -7,7 +7,7 @@
 
 <h1>Generate New Performance Report</h1>
 
-<h4>Select Report Type and Date Range</h4>
+<h4>Select Report Type, Date Range, and Optional Vehicle</h4>
 <hr />
 <div class="row">
     <div class="col-md-6">
@@ -28,13 +28,19 @@
 
         <h5>Fuel Efficiency Report</h5>
         <form asp-action="GenerateFuelEfficiencyReport" method="post">
-            <div class="form-group">
+            <div class="form-group mb-3">
                 <label for="FuelStartDate">Start Date:</label>
                 <input type="date" id="FuelStartDate" name="startDate" class="form-control" required />
             </div>
-            <div class="form-group">
+            <div class="form-group mb-3">
                 <label for="FuelEndDate">End Date:</label>
                 <input type="date" id="FuelEndDate" name="endDate" class="form-control" required />
+            </div>
+            <div class="form-group mb-3">
+                <label for="FuelVehicleId">Select Vehicle (Optional):</label>
+                <select id="FuelVehicleId" name="vehicleId" class="form-select" asp-items="ViewBag.Vehicles">
+                    @* Options from ViewBag.Vehicles *@
+                </select>
             </div>
             <div class="form-group">
                 <input type="submit" value="Generate Fuel Report" class="btn btn-primary" />
@@ -43,13 +49,19 @@
 
         <h5 class="mt-4">Vehicle Utilization Report</h5>
         <form asp-action="GenerateVehicleUtilizationReport" method="post">
-            <div class="form-group">
+            <div class="form-group mb-3">
                 <label for="UtilStartDate">Start Date:</label>
                 <input type="date" id="UtilStartDate" name="startDate" class="form-control" required />
             </div>
-            <div class="form-group">
+            <div class="form-group mb-3">
                 <label for="UtilEndDate">End Date:</label>
                 <input type="date" id="UtilEndDate" name="endDate" class="form-control" required />
+            </div>
+            <div class="form-group mb-3">
+                <label for="UtilVehicleId">Select Vehicle (Optional):</label>
+                <select id="UtilVehicleId" name="vehicleId" class="form-select" asp-items="ViewBag.Vehicles">
+                    @* Options from ViewBag.Vehicles *@
+                </select>
             </div>
             <div class="form-group">
                 <input type="submit" value="Generate Utilization Report" class="btn btn-primary" />
@@ -58,13 +70,19 @@
 
         <h5 class="mt-4">Maintenance Cost Report</h5>
         <form asp-action="GenerateMaintenanceCostReport" method="post">
-            <div class="form-group">
+            <div class="form-group mb-3">
                 <label for="MaintenanceStartDate">Start Date:</label>
                 <input type="date" id="MaintenanceStartDate" name="startDate" class="form-control" required />
             </div>
-            <div class="form-group">
+            <div class="form-group mb-3">
                 <label for="MaintenanceEndDate">End Date:</label>
                 <input type="date" id="MaintenanceEndDate" name="endDate" class="form-control" required />
+            </div>
+            <div class="form-group mb-3">
+                <label for="MaintenanceVehicleId">Select Vehicle (Optional):</label>
+                <select id="MaintenanceVehicleId" name="vehicleId" class="form-select" asp-items="ViewBag.Vehicles">
+                    @* Options from ViewBag.Vehicles *@
+                </select>
             </div>
             <div class="form-group">
                 <input type="submit" value="Generate Maintenance Report" class="btn btn-primary" />

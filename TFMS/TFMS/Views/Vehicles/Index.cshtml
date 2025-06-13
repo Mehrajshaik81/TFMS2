@@ -15,19 +15,16 @@
     <div class="row g-3 align-items-end">
         <div class="col-md-4">
             <label for="SearchString" class="form-label">Search (Reg No, Make, Model)</label>
-            @* ADD THIS INPUT FIELD HERE *@
             <input type="text" name="searchString" id="SearchString" class="form-control" value="@ViewBag.CurrentSearchString" />
         </div>
         <div class="col-md-3">
             <label for="StatusFilter" class="form-label">Filter by Status</label>
-            @* ADD THIS SELECT FIELD HERE *@
             <select name="statusFilter" id="StatusFilter" class="form-select" asp-items="ViewBag.StatusFilter">
                 <option value="">-- Select Status --</option>
             </select>
         </div>
         <div class="col-md-3">
             <label for="FuelTypeFilter" class="form-label">Filter by Fuel Type</label>
-            @* ADD THIS SELECT FIELD HERE *@
             <select name="fuelTypeFilter" id="FuelTypeFilter" class="form-select" asp-items="ViewBag.FuelTypeFilter">
                 <option value="">-- Select Fuel Type --</option>
             </select>
@@ -40,37 +37,38 @@
 </form>
 @* --- End Search and Filter Section --- *@
 
-<table class="table">
+<table class="table table-hover" id="vehiclesTable"> @* Added id="vehiclesTable" and table-hover for better UX *@
     <thead>
         <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.RegistrationNumber)
+
+            <th data-sort-column="RegistrationNumber" class="cursor-pointer">
+                @Html.DisplayNameFor(model => model.RegistrationNumber) <span class="sort-icon"></span>
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Capacity)
+            <th data-sort-column="Capacity" class="cursor-pointer">
+                @Html.DisplayNameFor(model => model.Capacity) <span class="sort-icon"></span>
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Status)
+            <th data-sort-column="Status" class="cursor-pointer">
+                @Html.DisplayNameFor(model => model.Status) <span class="sort-icon"></span>
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.LastServicedDate)
+            <th data-sort-column="LastServicedDate" class="cursor-pointer">
+                @Html.DisplayNameFor(model => model.LastServicedDate) <span class="sort-icon"></span>
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Make)
+            <th data-sort-column="Make" class="cursor-pointer">
+                @Html.DisplayNameFor(model => model.Make) <span class="sort-icon"></span>
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Model)
+            <th data-sort-column="Model" class="cursor-pointer">
+                @Html.DisplayNameFor(model => model.Model) <span class="sort-icon"></span>
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.ManufacturingYear)
+            <th data-sort-column="ManufacturingYear" class="cursor-pointer">
+                @Html.DisplayNameFor(model => model.ManufacturingYear) <span class="sort-icon"></span>
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.FuelType)
+            <th data-sort-column="FuelType" class="cursor-pointer">
+                @Html.DisplayNameFor(model => model.FuelType) <span class="sort-icon"></span>
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.CurrentOdometerKm)
+            <th data-sort-column="CurrentOdometerKm" class="cursor-pointer">
+                @Html.DisplayNameFor(model => model.CurrentOdometerKm) <span class="sort-icon"></span>
             </th>
-            <th></th>
+            <th></th> @* Actions column - not sortable *@
         </tr>
     </thead>
     <tbody>
@@ -113,3 +111,115 @@
         }
     </tbody>
 </table>
+
+@section Scripts {
+    <style>
+        .cursor-pointer {
+            cursor: pointer;
+        }
+        .sort-icon {
+            margin-left: 5px;
+        }
+        .sort-asc::after {
+            content: "\25B2"; /* Up arrow */
+        }
+        .sort-desc::after {
+            content: "\25BC"; /* Down arrow */
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const table = document.getElementById('vehiclesTable');
+            if (!table) return; // Exit if table not found
+
+            const headers = table.querySelectorAll('th[data-sort-column]'); // Get only sortable headers
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return; // Exit if tbody not found
+
+            let currentSortColumn = null;
+            let currentSortDirection = 'asc'; // 'asc' or 'desc'
+
+            headers.forEach(header => {
+                header.addEventListener('click', function () {
+                    const column = this.dataset.sortColumn;
+                    
+                    // Determine sort direction
+                    if (currentSortColumn === column) {
+                        currentSortDirection = (currentSortDirection === 'asc' ? 'desc' : 'asc');
+                    } else {
+                        // Reset direction if new column is clicked
+                        currentSortDirection = 'asc';
+                    }
+                    currentSortColumn = column;
+
+                    // Remove existing sort icons
+                    headers.forEach(h => h.querySelector('.sort-icon').textContent = '');
+                    headers.forEach(h => {
+                        h.classList.remove('sort-asc', 'sort-desc');
+                    });
+
+                    // Add new sort icon
+                    const sortIcon = this.querySelector('.sort-icon');
+                    if (sortIcon) {
+                        if (currentSortDirection === 'asc') {
+                            this.classList.add('sort-asc');
+                        } else {
+                            this.classList.add('sort-desc');
+                        }
+                    }
+
+                    sortTable(column, currentSortDirection);
+                });
+            });
+
+            function sortTable(columnName, direction) {
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+
+                rows.sort((a, b) => {
+                    // Find the correct cell index for the given column name
+                    const headerIndex = Array.from(headers).findIndex(h => h.dataset.sortColumn === columnName);
+                    if (headerIndex === -1) return 0; // Should not happen if data-sort-column is correct
+
+                    const cellA = a.children[headerIndex];
+                    const cellB = b.children[headerIndex];
+
+                    if (!cellA || !cellB) return 0; // Guard against missing cells
+
+                    // Get text content and try to convert to number or date
+                    const valA = cellA.textContent.trim();
+                    const valB = cellB.textContent.trim();
+
+                    let comparison = 0;
+
+                    // Try to convert to number for numeric columns
+                    const numA = parseFloat(valA);
+                    const numB = parseFloat(valB);
+
+                    // If both are numbers, compare numerically
+                    if (!isNaN(numA) && !isNaN(numB)) {
+                        comparison = numA - numB;
+                    }
+                    // Try to convert to date for date columns
+                    else if (moment && (moment(valA, 'YYYY-MM-DD', true).isValid() || moment(valA, 'MMM DD, YYYY', true).isValid()) &&
+                             (moment(valB, 'YYYY-MM-DD', true).isValid() || moment(valB, 'MMM DD, YYYY', true).isValid()))
+                    {
+                        const dateA = moment(valA).valueOf();
+                        const dateB = moment(valB).valueOf();
+                        comparison = dateA - dateB;
+                    }
+                    // Otherwise, compare as strings (case-insensitive)
+                    else {
+                        comparison = valA.localeCompare(valB, undefined, { sensitivity: 'base' });
+                    }
+
+                    return direction === 'asc' ? comparison : -comparison;
+                });
+
+                // Re-append sorted rows to the tbody
+                rows.forEach(row => tbody.appendChild(row));
+            }
+        });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script> @* Added moment.js for robust date parsing *@
+}

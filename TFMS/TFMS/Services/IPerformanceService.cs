@@ -1,5 +1,5 @@
 ﻿// Services/IPerformanceService.cs
-
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TFMS.Models;
@@ -14,9 +14,9 @@ namespace TFMS.Services
         Task DeletePerformanceReportAsync(int id);
         Task<bool> PerformanceReportExistsAsync(int id);
 
-        // Specific methods for generating reports (these will aggregate data from other entities)
-        Task<PerformanceReport> GenerateFuelEfficiencyReportAsync(DateTime startDate, DateTime endDate);
-        Task<PerformanceReport> GenerateVehicleUtilizationReportAsync(DateTime startDate, DateTime endDate);
-        Task<PerformanceReport> GenerateMaintenanceCostReportAsync(DateTime startDate, DateTime endDate);
+        // MODIFIED: Added optional vehicleId parameter
+        Task<PerformanceReport> GenerateFuelEfficiencyReportAsync(DateTime startDate, DateTime endDate, int? vehicleId = null);
+        Task<PerformanceReport> GenerateVehicleUtilizationReportAsync(DateTime startDate, DateTime endDate, int? vehicleId = null);
+        Task<PerformanceReport> GenerateMaintenanceCostReportAsync(DateTime startDate, DateTime endDate, int? vehicleId = null);
     }
 }
