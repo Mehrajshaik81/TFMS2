@@ -7,8 +7,39 @@
 <h1>Vehicles</h1>
 
 <p>
-    <a asp-action="Create">Create New</a>
+    <a asp-action="Create" class="btn btn-primary">Add New Vehicle</a>
 </p>
+
+@* --- Search and Filter Section --- *@
+<form asp-controller="Vehicles" asp-action="Index" method="get" class="mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label for="SearchString" class="form-label">Search (Reg No, Make, Model)</label>
+            @* ADD THIS INPUT FIELD HERE *@
+            <input type="text" name="searchString" id="SearchString" class="form-control" value="@ViewBag.CurrentSearchString" />
+        </div>
+        <div class="col-md-3">
+            <label for="StatusFilter" class="form-label">Filter by Status</label>
+            @* ADD THIS SELECT FIELD HERE *@
+            <select name="statusFilter" id="StatusFilter" class="form-select" asp-items="ViewBag.StatusFilter">
+                <option value="">-- Select Status --</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="FuelTypeFilter" class="form-label">Filter by Fuel Type</label>
+            @* ADD THIS SELECT FIELD HERE *@
+            <select name="fuelTypeFilter" id="FuelTypeFilter" class="form-select" asp-items="ViewBag.FuelTypeFilter">
+                <option value="">-- Select Fuel Type --</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex justify-content-end">
+            <button type="submit" class="btn btn-outline-secondary">Apply Filters</button>
+            <a asp-action="Index" class="btn btn-outline-danger ms-2">Clear Filters</a> @* Clear button *@
+        </div>
+    </div>
+</form>
+@* --- End Search and Filter Section --- *@
+
 <table class="table">
     <thead>
         <tr>

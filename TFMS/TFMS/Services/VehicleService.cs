@@ -1,11 +1,10 @@
 ﻿// Services/VehicleService.cs
 using Microsoft.EntityFrameworkCore;
-
 using System.Collections.Generic;
+using System.Linq; // Add this using directive if not already present
 using System.Threading.Tasks;
 using TFMS.Data;
 using TFMS.Models;
-using TFMS.Services;
 
 namespace TFMS.Services
 {
@@ -18,9 +17,31 @@ namespace TFMS.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<Vehicle>> GetAllVehiclesAsync()
+        public async Task<IEnumerable<Vehicle>> GetAllVehiclesAsync(string? searchString = null, string? statusFilter = null, string? fuelTypeFilter = null) // <<< MODIFIED
         {
-            return await _context.Vehicles.ToListAsync();
+            var vehicles = _context.Vehicles.AsQueryable(); // Start with IQueryable
+
+            // Apply search string filter
+            if (!string.IsNullOrEmpty(searchString))
+            {
+                vehicles = vehicles.Where(v => v.RegistrationNumber.Contains(searchString) ||
+                                               v.Make.Contains(searchString) ||
+                                               v.Model.Contains(searchString));
+            }
+
+            // Apply status filter
+            if (!string.IsNullOrEmpty(statusFilter) && statusFilter != "All") // Assume "All" is a default option
+            {
+                vehicles = vehicles.Where(v => v.Status == statusFilter);
+            }
+
+            // Apply fuel type filter
+            if (!string.IsNullOrEmpty(fuelTypeFilter) && fuelTypeFilter != "All") // Assume "All" is a default option
+            {
+                vehicles = vehicles.Where(v => v.FuelType == fuelTypeFilter);
+            }
+
+            return await vehicles.ToListAsync(); // Execute query
         }
 
         public async Task<Vehicle?> GetVehicleByIdAsync(int id)
@@ -36,7 +57,6 @@ namespace TFMS.Services
 
         public async Task UpdateVehicleAsync(Vehicle vehicle)
         {
-            // Ensure the entity is being tracked before updating
             _context.Update(vehicle);
             await _context.SaveChangesAsync();
         }
@@ -55,12 +75,5 @@ namespace TFMS.Services
         {
             return await _context.Vehicles.AnyAsync(e => e.VehicleId == id);
         }
-
-
-        public async Task<bool> IsVehicleInUseAsync(int vehicleId)
-        {
-            return await _context.Trips.AnyAsync(t => t.VehicleId == vehicleId);
-        }
-
     }
 }

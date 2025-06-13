@@ -1,37 +1,51 @@
 ﻿// Controllers/VehiclesController.cs
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering; // For SelectList
+using Microsoft.EntityFrameworkCore;
 using TFMS.Models;
 using TFMS.Services;
-using Microsoft.EntityFrameworkCore; // Needed for DbUpdateConcurrencyException
+using System.Linq; // For Distinct()
 
 namespace TFMS.Controllers
 {
-    // This attribute ensures that only authenticated users can access this controller.
-    // We will refine roles later.
-    [Authorize]
+    [Authorize(Roles = "Fleet Administrator,Fleet Operator")]
     public class VehiclesController : Controller
     {
         private readonly IVehicleService _vehicleService;
 
-        // Constructor injection: ASP.NET Core DI provides an instance of IVehicleService
         public VehiclesController(IVehicleService vehicleService)
         {
             _vehicleService = vehicleService;
         }
 
         // GET: Vehicles
-        // Allows Fleet Administrators and Fleet Operators to view the list of vehicles
-        [Authorize(Roles = "Fleet Administrator,Fleet Operator")]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? searchString, string? statusFilter, string? fuelTypeFilter)
         {
-            var vehicles = await _vehicleService.GetAllVehiclesAsync();
+            // --- ADD THESE LINES HERE ---
+            ViewBag.CurrentSearchString = searchString;
+            ViewBag.CurrentStatusFilter = statusFilter;
+            ViewBag.CurrentFuelTypeFilter = fuelTypeFilter;
+            // ---------------------------
+
+            // Get all unique statuses and fuel types for filter dropdowns
+            // We fetch all vehicles *first* to ensure the dropdowns contain all possible options
+            var allVehiclesForFilters = await _vehicleService.GetAllVehiclesAsync();
+            ViewBag.StatusFilter = new SelectList(
+                allVehiclesForFilters.Select(v => v.Status).Distinct().Prepend("All").ToList(), // Add "All" option
+                statusFilter // Select current filter value
+            );
+            ViewBag.FuelTypeFilter = new SelectList(
+                allVehiclesForFilters.Select(v => v.FuelType).Distinct().Prepend("All").ToList(), // Add "All" option
+                fuelTypeFilter // Select current filter value
+            );
+
+            // Now get the vehicles based on the applied filters
+            var vehicles = await _vehicleService.GetAllVehiclesAsync(searchString, statusFilter, fuelTypeFilter);
             return View(vehicles);
         }
 
         // GET: Vehicles/Details/5
-        // Allows Fleet Administrators and Fleet Operators to view details of a specific vehicle
-        [Authorize(Roles = "Fleet Administrator,Fleet Operator")]
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null)
@@ -49,7 +63,6 @@ namespace TFMS.Controllers
         }
 
         // GET: Vehicles/Create
-        // Only Fleet Administrators can create new vehicles
         [Authorize(Roles = "Fleet Administrator")]
         public IActionResult Create()
         {
@@ -57,13 +70,10 @@ namespace TFMS.Controllers
         }
 
         // POST: Vehicles/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        // Only Fleet Administrators can create new vehicles
         [HttpPost]
-        [ValidateAntiForgeryToken] // Prevents Cross-Site Request Forgery attacks
+        [ValidateAntiForgeryToken]
         [Authorize(Roles = "Fleet Administrator")]
-        public async Task<IActionResult> Create([Bind("RegistrationNumber,Capacity,Status,LastServicedDate,Make,Model,ManufacturingYear,FuelType,CurrentOdometerKm")] Vehicle vehicle)
+        public async Task<IActionResult> Create([Bind("VehicleId,RegistrationNumber,Capacity,Status,LastServicedDate,Make,Model,ManufacturingYear,FuelType,CurrentOdometerKm")] Vehicle vehicle)
         {
             if (ModelState.IsValid)
             {
@@ -74,7 +84,6 @@ namespace TFMS.Controllers
         }
 
         // GET: Vehicles/Edit/5
-        // Only Fleet Administrators can edit vehicle details
         [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Edit(int? id)
         {
@@ -92,9 +101,6 @@ namespace TFMS.Controllers
         }
 
         // POST: Vehicles/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        // Only Fleet Administrators can edit vehicle details
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Fleet Administrator")]
@@ -119,7 +125,7 @@ namespace TFMS.Controllers
                     }
                     else
                     {
-                        throw; // Re-throw if it's a different concurrency issue
+                        throw;
                     }
                 }
                 return RedirectToAction(nameof(Index));
@@ -128,7 +134,6 @@ namespace TFMS.Controllers
         }
 
         // GET: Vehicles/Delete/5
-        // Only Fleet Administrators can delete vehicles
         [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Delete(int? id)
         {
@@ -147,7 +152,6 @@ namespace TFMS.Controllers
         }
 
         // POST: Vehicles/Delete/5
-        // Only Fleet Administrators can delete vehicles
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Fleet Administrator")]
