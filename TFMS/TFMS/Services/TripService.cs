@@ -1,11 +1,10 @@
 ﻿// Services/TripService.cs
 using Microsoft.EntityFrameworkCore;
-
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using TFMS.Data;
 using TFMS.Models;
-using TFMS.Services;
 
 namespace TFMS.Services
 {
@@ -18,18 +17,44 @@ namespace TFMS.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<Trip>> GetAllTripsAsync()
+        public async Task<IEnumerable<Trip>> GetAllTripsAsync(string? searchString = null, string? statusFilter = null, string? driverIdFilter = null, int? vehicleIdFilter = null) // <<< MODIFIED
         {
-            // Include Vehicle and Driver for display purposes
-            return await _context.Trips
-                                 .Include(t => t.Vehicle)
-                                 .Include(t => t.Driver)
-                                 .ToListAsync();
+            var trips = _context.Trips
+                                .Include(t => t.Vehicle) // Include Vehicle for filtering/display
+                                .Include(t => t.Driver)   // Include Driver for filtering/display
+                                .AsQueryable(); // Start with IQueryable for chaining filters
+
+            // Apply search string filter (by StartLocation, EndLocation, or RouteDetails)
+            if (!string.IsNullOrEmpty(searchString))
+            {
+                trips = trips.Where(t => t.StartLocation.Contains(searchString) ||
+                                       t.EndLocation.Contains(searchString) ||
+                                       (t.RouteDetails != null && t.RouteDetails.Contains(searchString))); // Check for null before Contains
+            }
+
+            // Apply status filter
+            if (!string.IsNullOrEmpty(statusFilter) && statusFilter != "All") // Assume "All" is a default option
+            {
+                trips = trips.Where(t => t.Status == statusFilter);
+            }
+
+            // Apply driver filter by DriverId
+            if (!string.IsNullOrEmpty(driverIdFilter) && driverIdFilter != "All")
+            {
+                trips = trips.Where(t => t.DriverId == driverIdFilter);
+            }
+
+            // Apply vehicle filter by VehicleId
+            if (vehicleIdFilter.HasValue && vehicleIdFilter.Value > 0) // Assuming 0 or null means "All"
+            {
+                trips = trips.Where(t => t.VehicleId == vehicleIdFilter.Value);
+            }
+
+            return await trips.ToListAsync(); // Execute query
         }
 
         public async Task<Trip?> GetTripByIdAsync(int id)
         {
-            // Include Vehicle and Driver for display purposes
             return await _context.Trips
                                  .Include(t => t.Vehicle)
                                  .Include(t => t.Driver)

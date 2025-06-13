@@ -1,55 +1,81 @@
 ﻿// Controllers/TripsController.cs
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity; // ADDED
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering; // For SelectList
-using Microsoft.EntityFrameworkCore; // For DbUpdateConcurrencyException
-using TFMS.Data;
+using Microsoft.EntityFrameworkCore;
 using TFMS.Models;
 using TFMS.Services;
+using System.Linq;
+using System.Security.Claims; // For ClaimTypes.NameIdentifier
+using System.Collections.Generic; // For List
 
 namespace TFMS.Controllers
 {
-    [Authorize] // All actions require authentication
+    [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
     public class TripsController : Controller
     {
         private readonly ITripService _tripService;
-        private readonly IVehicleService _vehicleService; // To get list of vehicles for dropdowns
-        private readonly ApplicationDbContext _context; // To get list of drivers for dropdowns (UserManager would be another option)
+        private readonly IVehicleService _vehicleService;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        // Constructor injection
-        //added new comment
-        public TripsController(ITripService tripService, IVehicleService vehicleService, ApplicationDbContext context)
+        public TripsController(ITripService tripService,
+                               IVehicleService vehicleService,
+                               UserManager<ApplicationUser> userManager)
         {
             _tripService = tripService;
             _vehicleService = vehicleService;
-            _context = context;
-        }
-
-        // Helper method to populate Vehicle and Driver dropdowns
-       
-        private async Task PopulateDropdowns(int? selectedVehicle = null, string? selectedDriver = null)
-        {
-            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber", selectedVehicle);
-
-            // Get only active drivers for the dropdown
-            var drivers = await _context.Users
-                                        .Where(u => u.IsActiveDriver) // Assuming IsActiveDriver property in ApplicationUser
-                                        .ToListAsync();
-            ViewBag.DriverId = new SelectList(drivers, "Id", "Email", selectedDriver); // Using Id for value, Email for display
+            _userManager = userManager;
         }
 
         // GET: Trips
-        // Fleet Administrator and Fleet Operator can view all trips
-        [Authorize(Roles = "Fleet Administrator,Fleet Operator")]
-        public async Task<IActionResult> Index()
+        // Added parameters for search string, status, driver, and vehicle filters
+        public async Task<IActionResult> Index(string? searchString, string? statusFilter, string? driverIdFilter, int? vehicleIdFilter)
         {
-            var trips = await _tripService.GetAllTripsAsync();
+            // Store current filter values in ViewBag to persist them in the UI
+            ViewBag.CurrentSearchString = searchString;
+            ViewBag.CurrentStatusFilter = statusFilter;
+            ViewBag.CurrentDriverFilter = driverIdFilter;
+            ViewBag.CurrentVehicleFilter = vehicleIdFilter;
+
+            // Prepare Status filter options (static list)
+            var statusOptions = new List<string> { "All", "Pending", "In Progress", "Completed", "Delayed", "Canceled" };
+            ViewBag.StatusFilter = new SelectList(statusOptions, statusFilter);
+
+            // Prepare Driver filter options
+            var allDrivers = await _userManager.GetUsersInRoleAsync("Driver");
+            var driverListItems = allDrivers.Select(d => new SelectListItem { Value = d.Id, Text = d.Email }).ToList();
+            driverListItems.Insert(0, new SelectListItem { Value = "All", Text = "All Drivers" }); // Add "All Drivers" option
+
+            // FIX: Specify dataValueField and dataTextField for SelectList
+            ViewBag.DriverFilter = new SelectList(driverListItems, "Value", "Text", driverIdFilter);
+
+
+            // Prepare Vehicle filter options
+            var allVehicles = await _vehicleService.GetAllVehiclesAsync();
+            var vehicleListItems = allVehicles.Select(v => new SelectListItem { Value = v.VehicleId.ToString(), Text = v.RegistrationNumber }).ToList();
+            vehicleListItems.Insert(0, new SelectListItem { Value = "0", Text = "All Vehicles" }); // Use "0" for "All" vehicles
+
+            // FIX: Specify dataValueField and dataTextField for SelectList
+            ViewBag.VehicleFilter = new SelectList(vehicleListItems, "Value", "Text", vehicleIdFilter.ToString());
+
+            // Fetch trips based on filters
+            var trips = await _tripService.GetAllTripsAsync(searchString, statusFilter, driverIdFilter, vehicleIdFilter);
+
+            // For drivers, filter to only show their trips after other filters are applied
+            if (User.IsInRole("Driver") && !User.IsInRole("Fleet Administrator") && !User.IsInRole("Fleet Operator"))
+            {
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (currentUserId != null)
+                {
+                    trips = trips.Where(t => t.DriverId == currentUserId);
+                }
+            }
+
             return View(trips);
         }
 
         // GET: Trips/Details/5
-        // Fleet Administrator and Fleet Operator can view trip details
-        [Authorize(Roles = "Fleet Administrator,Fleet Operator")]
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null)
@@ -67,37 +93,60 @@ namespace TFMS.Controllers
         }
 
         // GET: Trips/Create
-        // Only Fleet Administrator can create new trips
-        [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Create()
         {
-            await PopulateDropdowns();
+            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber");
+
+            // For Create, if current user is a driver, pre-select them and show only their ID
+            if (User.IsInRole("Driver") && !User.IsInRole("Fleet Administrator") && !User.IsInRole("Fleet Operator"))
+            {
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var currentUser = await _userManager.FindByIdAsync(currentUserId);
+                // FIX: Specify dataValueField and dataTextField for SelectList
+                ViewBag.DriverId = new SelectList(new List<ApplicationUser> { currentUser }, "Id", "Email", currentUserId);
+            }
+            else // For Admin/Operator, show all drivers
+            {
+                // FIX: Specify dataValueField and dataTextField for SelectList
+                ViewBag.DriverId = new SelectList(await _userManager.GetUsersInRoleAsync("Driver"), "Id", "Email");
+            }
             return View();
         }
 
         // POST: Trips/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Fleet Administrator")]
-        public async Task<IActionResult> Create([Bind("VehicleId,DriverId,StartLocation,EndLocation,ScheduledStartTime,ScheduledEndTime,Status,EstimatedDistanceKm,RouteDetails")] Trip trip)
+        public async Task<IActionResult> Create([Bind("TripId,VehicleId,DriverId,StartLocation,EndLocation,ScheduledStartTime,ScheduledEndTime,Status,ActualStartTime,ActualEndTime,EstimatedDistanceKm,ActualDistanceKm,RouteDetails")] Trip trip)
         {
-            // Remove navigation properties from ModelState to prevent validation errors on FKs
-            // The bound properties (VehicleId, DriverId) are sufficient
-            ModelState.Remove("Vehicle");
-            ModelState.Remove("Driver");
-
             if (ModelState.IsValid)
             {
+                // Ensure the Status is set to "Pending" if not explicitly handled by a hidden input or default
+                if (string.IsNullOrEmpty(trip.Status))
+                {
+                    trip.Status = "Pending";
+                }
                 await _tripService.AddTripAsync(trip);
                 return RedirectToAction(nameof(Index));
             }
-            await PopulateDropdowns(trip.VehicleId, trip.DriverId); // Repopulate dropdowns on error
+            // If model state is not valid, re-populate ViewBags
+            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber", trip.VehicleId);
+
+            if (User.IsInRole("Driver") && !User.IsInRole("Fleet Administrator") && !User.IsInRole("Fleet Operator"))
+            {
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var currentUser = await _userManager.FindByIdAsync(currentUserId);
+                ViewBag.DriverId = new SelectList(new List<ApplicationUser> { currentUser }, "Id", "Email", currentUserId);
+            }
+            else
+            {
+                ViewBag.DriverId = new SelectList(await _userManager.GetUsersInRoleAsync("Driver"), "Id", "Email", trip.DriverId);
+            }
+
             return View(trip);
         }
 
         // GET: Trips/Edit/5
-        // Only Fleet Administrator can edit trips
-        [Authorize(Roles = "Fleet Administrator")]
+        [Authorize(Roles = "Fleet Administrator,Fleet Operator")] // <<< Ensure this authorization is correct
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -105,20 +154,33 @@ namespace TFMS.Controllers
                 return NotFound();
             }
 
-            var trip = await _tripService.GetTripByIdAsync(id.Value); // Use service to get by ID, which includes Vehicle/Driver
+            var trip = await _tripService.GetTripByIdAsync(id.Value);
             if (trip == null)
             {
                 return NotFound();
             }
 
-            await PopulateDropdowns(trip.VehicleId, trip.DriverId);
+            // Drivers can only update status, not full edit.
+            // If a driver tries to access this, they should be forbidden or redirected.
+            if (User.IsInRole("Driver"))
+            {
+                // This check is already done by [Authorize], but adding it for clarity
+                // If a Driver *should* edit, you'd change the Authorize attribute and add logic here.
+                // Assuming only Admin/Operator can fully edit a trip.
+                return Forbid(); // Deny access for Driver role to full edit.
+            }
+
+            // FIX: Specify dataValueField and dataTextField for SelectList for VehicleId
+            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber", trip.VehicleId);
+            // FIX: Specify dataValueField and dataTextField for SelectList for DriverId
+            ViewBag.DriverId = new SelectList(await _userManager.GetUsersInRoleAsync("Driver"), "Id", "Email", trip.DriverId);
             return View(trip);
         }
 
         // POST: Trips/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Fleet Administrator")]
+        [Authorize(Roles = "Fleet Administrator,Fleet Operator")] // <<< Ensure this authorization is correct
         public async Task<IActionResult> Edit(int id, [Bind("TripId,VehicleId,DriverId,StartLocation,EndLocation,ScheduledStartTime,ScheduledEndTime,Status,ActualStartTime,ActualEndTime,EstimatedDistanceKm,ActualDistanceKm,RouteDetails")] Trip trip)
         {
             if (id != trip.TripId)
@@ -126,15 +188,36 @@ namespace TFMS.Controllers
                 return NotFound();
             }
 
-            // Remove navigation properties from ModelState
-            ModelState.Remove("Vehicle");
-            ModelState.Remove("Driver");
+            // Re-fetch original trip details to preserve fields not in the Bind attribute if necessary
+            // (e.g., if you only bind a subset of fields for security)
+            var originalTrip = await _tripService.GetTripByIdAsync(id);
+            if (originalTrip == null)
+            {
+                return NotFound();
+            }
+
+            // Update only the properties that are allowed to be edited via the form
+            // Ensure you are not over-binding if some fields should only be set by other means (e.g., Status by UpdateStatus)
+            originalTrip.VehicleId = trip.VehicleId;
+            originalTrip.DriverId = trip.DriverId;
+            originalTrip.StartLocation = trip.StartLocation;
+            originalTrip.EndLocation = trip.EndLocation;
+            originalTrip.ScheduledStartTime = trip.ScheduledStartTime;
+            originalTrip.ScheduledEndTime = trip.ScheduledEndTime;
+            // originalTrip.Status = trip.Status; // Be careful with this if UpdateStatus is separate
+            originalTrip.EstimatedDistanceKm = trip.EstimatedDistanceKm;
+            originalTrip.ActualDistanceKm = trip.ActualDistanceKm;
+            originalTrip.ActualStartTime = trip.ActualStartTime;
+            originalTrip.ActualEndTime = trip.ActualEndTime;
+            originalTrip.RouteDetails = trip.RouteDetails;
+
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    await _tripService.UpdateTripAsync(trip);
+                    // If you only want to update selected fields, use originalTrip, not trip directly in UpdateAsync
+                    await _tripService.UpdateTripAsync(originalTrip);
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -149,12 +232,91 @@ namespace TFMS.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            await PopulateDropdowns(trip.VehicleId, trip.DriverId); // Repopulate dropdowns on error
+            // If model state is not valid, re-populate ViewBags
+            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber", trip.VehicleId);
+            ViewBag.DriverId = new SelectList(await _userManager.GetUsersInRoleAsync("Driver"), "Id", "Email", trip.DriverId);
             return View(trip);
         }
 
+
+        // GET: Trips/UpdateStatus/5
+        [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
+        public async Task<IActionResult> UpdateStatus(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var trip = await _tripService.GetTripByIdAsync(id.Value);
+            if (trip == null)
+            {
+                return NotFound();
+            }
+
+            // Drivers can only update status for their own trips
+            if (User.IsInRole("Driver") && trip.DriverId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+            {
+                return Forbid(); // Or RedirectToAction("AccessDenied", "Account");
+            }
+
+            return View(trip);
+        }
+
+        // POST: Trips/UpdateStatus/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
+        public async Task<IActionResult> UpdateStatus(int id, [Bind("TripId,VehicleId,DriverId,StartLocation,EndLocation,ScheduledStartTime,ScheduledEndTime,EstimatedDistanceKm,RouteDetails,Status,ActualStartTime,ActualEndTime,ActualDistanceKm")] Trip trip)
+        {
+            if (id != trip.TripId)
+            {
+                return NotFound();
+            }
+
+            // Fetch the original trip to prevent overposting issues and ensure driver can only update status/actual times
+            var originalTrip = await _tripService.GetTripByIdAsync(id);
+            if (originalTrip == null)
+            {
+                return NotFound();
+            }
+
+            // For drivers, ensure they are updating their own trip
+            if (User.IsInRole("Driver") && originalTrip.DriverId != User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+            {
+                return Forbid();
+            }
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    // Update only the allowed fields in originalTrip.
+                    // This is crucial to prevent potentially malicious over-binding.
+                    originalTrip.Status = trip.Status;
+                    originalTrip.ActualStartTime = trip.ActualStartTime;
+                    originalTrip.ActualEndTime = trip.ActualEndTime;
+                    originalTrip.ActualDistanceKm = trip.ActualDistanceKm;
+
+                    await _tripService.UpdateTripAsync(originalTrip);
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!await _tripService.TripExistsAsync(trip.TripId))
+                    {
+                        return NotFound();
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+                return RedirectToAction(nameof(Index));
+            }
+            return View(trip); // If ModelState is not valid, re-render the view with errors
+        }
+
         // GET: Trips/Delete/5
-        // Only Fleet Administrator can delete trips
         [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Delete(int? id)
         {
@@ -180,101 +342,6 @@ namespace TFMS.Controllers
         {
             await _tripService.DeleteTripAsync(id);
             return RedirectToAction(nameof(Index));
-        }
-
-        // Action for Driver to update trip status (More restricted than Edit)
-        // Can be accessed by Fleet Administrator, Fleet Operator, and Driver
-        [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
-        public async Task<IActionResult> UpdateStatus(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var trip = await _tripService.GetTripByIdAsync(id.Value);
-            if (trip == null)
-            {
-                return NotFound();
-            }
-
-            // Ensure only the assigned driver or admin/operator can update status
-            if (User.IsInRole("Driver") && trip.DriverId != User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
-            {
-                return Forbid(); // Driver trying to update another driver's trip
-            }
-
-            return View(trip);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
-        public async Task<IActionResult> UpdateStatus(int id, [Bind("TripId,Status,ActualStartTime,ActualEndTime,ActualDistanceKm")] Trip tripUpdate)
-        {
-            if (id != tripUpdate.TripId)
-            {
-                return NotFound();
-            }
-
-            var existingTrip = await _tripService.GetTripByIdAsync(id);
-            if (existingTrip == null)
-            {
-                return NotFound();
-            }
-
-            // Only allow the assigned driver or admin/operator to update status
-            if (User.IsInRole("Driver") && existingTrip.DriverId != User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
-            {
-                return Forbid(); // Driver trying to update another driver's trip
-            }
-
-            // Update only allowed fields for status update
-            existingTrip.Status = tripUpdate.Status;
-            existingTrip.ActualStartTime = tripUpdate.ActualStartTime ?? existingTrip.ActualStartTime; // Update only if provided
-            existingTrip.ActualEndTime = tripUpdate.ActualEndTime ?? existingTrip.ActualEndTime;
-            existingTrip.ActualDistanceKm = tripUpdate.ActualDistanceKm ?? existingTrip.ActualDistanceKm;
-
-
-            // If status is "In Progress" and ActualStartTime is null, set it
-            if (existingTrip.Status == "In Progress" && !existingTrip.ActualStartTime.HasValue)
-            {
-                existingTrip.ActualStartTime = DateTime.Now;
-            }
-            // If status is "Completed" and ActualEndTime is null, set it
-            else if (existingTrip.Status == "Completed" && !existingTrip.ActualEndTime.HasValue)
-            {
-                existingTrip.ActualEndTime = DateTime.Now;
-            }
-
-
-            // Remove navigation properties from ModelState
-            ModelState.Remove("Vehicle");
-            ModelState.Remove("Driver");
-
-
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    await _tripService.UpdateTripAsync(existingTrip);
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!await _tripService.TripExistsAsync(existingTrip.TripId))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Details), new { id = existingTrip.TripId }); // Redirect to details after update
-            }
-
-            // If ModelState is invalid, re-show the form
-            return View(tripUpdate);
         }
     }
 }

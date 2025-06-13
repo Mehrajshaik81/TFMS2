@@ -1,5 +1,4 @@
-﻿@* Corrected namespace: assuming TFMS.Models is now TransportationFleetManagementSystem.Models based on previous discussions *@
-@model IEnumerable<TFMS.Models.Trip>
+﻿@model IEnumerable<TFMS.Models.Trip>
 
 @{
     ViewData["Title"] = "Trips";
@@ -8,8 +7,42 @@
 <h1>Trips</h1>
 
 <p>
-    <a asp-action="Create">Create New Trip</a>
+    <a asp-action="Create" class="btn btn-primary">Create New Trip</a>
 </p>
+
+@* --- Search and Filter Section --- *@
+<form asp-controller="Trips" asp-action="Index" method="get" class="mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="SearchString" class="form-label">Search (Location/Route)</label>
+            <input type="text" name="searchString" id="SearchString" class="form-control" value="@ViewBag.CurrentSearchString" />
+        </div>
+        <div class="col-md-2">
+            <label for="StatusFilter" class="form-label">Filter by Status</label>
+            <select name="statusFilter" id="StatusFilter" class="form-select" asp-items="ViewBag.StatusFilter">
+                @* No default option needed as "All" is in ViewBag *@
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="DriverFilter" class="form-label">Filter by Driver</label>
+            <select name="driverIdFilter" id="DriverFilter" class="form-select" asp-items="ViewBag.DriverFilter">
+                @* No default option needed as "All Drivers" is in ViewBag *@
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label for="VehicleFilter" class="form-label">Filter by Vehicle</label>
+            <select name="vehicleIdFilter" id="VehicleFilter" class="form-select" asp-items="ViewBag.VehicleFilter">
+                @* No default option needed as "All Vehicles" is in ViewBag *@
+            </select>
+        </div>
+        <div class="col-md-2 d-flex justify-content-end">
+            <button type="submit" class="btn btn-outline-secondary">Apply Filters</button>
+            <a asp-action="Index" class="btn btn-outline-danger ms-2">Clear Filters</a>
+        </div>
+    </div>
+</form>
+@* --- End Search and Filter Section --- *@
+
 <table class="table">
     <thead>
         <tr>
@@ -87,18 +120,17 @@
                     @Html.DisplayFor(modelItem => item.ActualDistanceKm)
                 </td>
                 <td>
-                    <a asp-action="Details" asp-route-id="@item.TripId">Details</a>
+                    <a asp-action="Details" asp-route-id="@item.TripId">Details</a> 
                     @if (User.IsInRole("Fleet Administrator") || User.IsInRole("Fleet Operator"))
                     {
-                        <span> | </span>
-
-                        <a asp-action="Edit" asp-route-id="@item.TripId">Edit</a>
+                        <a asp-action="Edit" asp-route-id="@item.TripId">Edit</a> 
                     }
-                 
+                    @if (User.IsInRole("Fleet Administrator") || User.IsInRole("Fleet Operator") || (User.IsInRole("Driver") && item.DriverId == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value))
+                    {
+                        <a asp-action="UpdateStatus" asp-route-id="@item.TripId">Update Status</a> 
+                    }
                     @if (User.IsInRole("Fleet Administrator"))
                     {
-                        <span> | </span>
-
                         <a asp-action="Delete" asp-route-id="@item.TripId">Delete</a>
                     }
                 </td>

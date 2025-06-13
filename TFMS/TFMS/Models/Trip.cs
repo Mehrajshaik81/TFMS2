@@ -63,5 +63,7 @@ namespace TFMS.Models // Your correct namespace
         [StringLength(500)]
         [Display(Name = "Route Details")]
         public string? RouteDetails { get; set; }
+
+
     }
 }
