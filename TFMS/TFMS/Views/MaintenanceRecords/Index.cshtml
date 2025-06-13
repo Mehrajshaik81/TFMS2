@@ -1,5 +1,4 @@
-﻿<!-- Views/MaintenanceRecords/Index.cshtml -->
-@model IEnumerable<TFMS.Models.Maintenance>
+﻿@model IEnumerable<TFMS.Models.Maintenance>
 
 @{
     ViewData["Title"] = "Maintenance Records";
@@ -8,8 +7,42 @@
 <h1>Maintenance Records</h1>
 
 <p>
-    <a asp-action="Create">Schedule New Maintenance</a>
+    <a asp-action="Create" class="btn btn-primary">Schedule New Maintenance</a>
 </p>
+
+@* --- Search and Filter Section --- *@
+<form asp-controller="MaintenanceRecords" asp-action="Index" method="get" class="mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="SearchString" class="form-label">Search (Description/Performer)</label>
+            <input type="text" name="searchString" id="SearchString" class="form-control" value="@ViewBag.CurrentSearchString" />
+        </div>
+        <div class="col-md-2">
+            <label for="StatusFilter" class="form-label">Filter by Status</label>
+            <select name="statusFilter" id="StatusFilter" class="form-select" asp-items="ViewBag.StatusFilter">
+                @* "All" is in ViewBag *@
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="VehicleFilter" class="form-label">Filter by Vehicle</label>
+            <select name="vehicleIdFilter" id="VehicleFilter" class="form-select" asp-items="ViewBag.VehicleFilter">
+                @* "All Vehicles" is in ViewBag *@
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label for="MaintenanceTypeFilter" class="form-label">Filter by Type</label>
+            <select name="maintenanceTypeFilter" id="MaintenanceTypeFilter" class="form-select" asp-items="ViewBag.MaintenanceTypeFilter">
+                @* "All" is in ViewBag *@
+            </select>
+        </div>
+        <div class="col-md-2 d-flex justify-content-end">
+            <button type="submit" class="btn btn-outline-secondary">Apply Filters</button>
+            <a asp-action="Index" class="btn btn-outline-danger ms-2">Clear Filters</a>
+        </div>
+    </div>
+</form>
+@* --- End Search and Filter Section --- *@
+
 <table class="table">
     <thead>
         <tr>
@@ -44,8 +77,7 @@
         </tr>
     </thead>
     <tbody>
-        @foreach (var item in Model)
-        {
+        @foreach (var item in Model) {
             <tr>
                 <td>
                     @Html.DisplayFor(modelItem => item.Vehicle!.RegistrationNumber)
@@ -75,8 +107,8 @@
                     @Html.DisplayFor(modelItem => item.MaintenanceType)
                 </td>
                 <td>
-                    <a asp-action="Edit" asp-route-id="@item.MaintenanceId">Edit</a> |
-                    <a asp-action="Details" asp-route-id="@item.MaintenanceId">Details</a> |
+                    <a asp-action="Edit" asp-route-id="@item.MaintenanceId">Edit</a> 
+                    <a asp-action="Details" asp-route-id="@item.MaintenanceId">Details</a> 
                     <a asp-action="Delete" asp-route-id="@item.MaintenanceId">Delete</a>
                 </td>
             </tr>

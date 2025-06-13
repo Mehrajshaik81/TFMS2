@@ -1,132 +1,177 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿// Controllers/FuelRecordsController.cs
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Mvc.Rendering; // For SelectList
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
-using TFMS.Data;
 using TFMS.Models;
 using TFMS.Services;
+using System.Linq;
+using System.Security.Claims; // For ClaimTypes.NameIdentifier
+using System.Collections.Generic; // For List
 
 namespace TFMS.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
     public class FuelRecordsController : Controller
     {
         private readonly IFuelService _fuelService;
         private readonly IVehicleService _vehicleService;
-        private readonly ApplicationDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public FuelRecordsController(IFuelService fuelService, IVehicleService vehicleService, ApplicationDbContext context)
+        public FuelRecordsController(IFuelService fuelService,
+                                     IVehicleService vehicleService,
+                                     UserManager<ApplicationUser> userManager)
         {
             _fuelService = fuelService;
             _vehicleService = vehicleService;
-            _context = context;
+            _userManager = userManager;
         }
 
-        private async Task PopulateDropdowns(int? selectedVehicle = null, string? selectedDriver = null)
+        // GET: FuelRecords
+        public async Task<IActionResult> Index(string? searchString, int? vehicleIdFilter, string? driverIdFilter, DateTime? startDate, DateTime? endDate)
         {
-            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber", selectedVehicle);
+            // Store current filter values in ViewBag to persist them in the UI
+            ViewBag.CurrentSearchString = searchString;
+            ViewBag.CurrentVehicleFilter = vehicleIdFilter;
+            ViewBag.CurrentDriverFilter = driverIdFilter;
+            ViewBag.CurrentStartDate = startDate?.ToString("yyyy-MM-dd"); // Format for HTML date input
+            ViewBag.CurrentEndDate = endDate?.ToString("yyyy-MM-dd");     // Format for HTML date input
 
-            var drivers = await _context.Users
-                                        .Where(u => u.IsActiveDriver)
-                                        .ToListAsync();
-            ViewBag.DriverId = new SelectList(drivers, "Id", "Email", selectedDriver);
-        }
+            // Prepare Vehicle filter options
+            var allVehicles = await _vehicleService.GetAllVehiclesAsync();
+            var vehicleListItems = allVehicles.Select(v => new SelectListItem { Value = v.VehicleId.ToString(), Text = v.RegistrationNumber }).ToList();
+            vehicleListItems.Insert(0, new SelectListItem { Value = "0", Text = "All Vehicles" }); // Use "0" for "All" vehicles
+            // FIX: Specify dataValueField and dataTextField
+            ViewBag.VehicleFilter = new SelectList(vehicleListItems, "Value", "Text", vehicleIdFilter.ToString());
 
-        [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
-        public async Task<IActionResult> Index()
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            // Prepare Driver filter options
+            var allDrivers = await _userManager.GetUsersInRoleAsync("Driver");
+            var driverListItems = allDrivers.Select(d => new SelectListItem { Value = d.Id, Text = d.Email }).ToList();
+            driverListItems.Insert(0, new SelectListItem { Value = "All", Text = "All Drivers" }); // Add "All Drivers" option
+            // FIX: Specify dataValueField and dataTextField
+            ViewBag.DriverFilter = new SelectList(driverListItems, "Value", "Text", driverIdFilter);
 
-            if (User.IsInRole("Driver"))
+            // Fetch fuel records based on filters
+            var fuelRecords = await _fuelService.GetAllFuelRecordsAsync(searchString, vehicleIdFilter, driverIdFilter, startDate, endDate);
+
+            // For drivers, filter to only show their fuel records after other filters are applied
+            if (User.IsInRole("Driver") && !User.IsInRole("Fleet Administrator") && !User.IsInRole("Fleet Operator"))
             {
-                var driverFuelRecords = await _fuelService.GetAllFuelRecordsAsync();
-                return View(driverFuelRecords.Where(f => f.DriverId == userId).ToList());
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (currentUserId != null)
+                {
+                    fuelRecords = fuelRecords.Where(f => f.DriverId == currentUserId);
+                }
             }
 
-            var allFuelRecords = await _fuelService.GetAllFuelRecordsAsync();
-            return View(allFuelRecords);
+            return View(fuelRecords);
         }
 
-        [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
+        // GET: FuelRecords/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null) return NotFound();
+            if (id == null)
+            {
+                return NotFound();
+            }
 
             var fuelRecord = await _fuelService.GetFuelRecordByIdAsync(id.Value);
-            if (fuelRecord == null) return NotFound();
-
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (User.IsInRole("Driver") && fuelRecord.DriverId != userId)
+            if (fuelRecord == null)
             {
-                return Forbid();
+                return NotFound();
             }
 
             return View(fuelRecord);
         }
 
-        [Authorize(Roles = "Fleet Administrator,Driver")]
+        // GET: FuelRecords/Create
         public async Task<IActionResult> Create()
         {
-            await PopulateDropdowns();
+            // FIX: Specify dataValueField and dataTextField
+            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber");
 
-            if (User.IsInRole("Driver"))
+            // For Create, if current user is a driver, pre-select them and show only their ID
+            if (User.IsInRole("Driver") && !User.IsInRole("Fleet Administrator") && !User.IsInRole("Fleet Operator"))
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                var driver = await _context.Users.FindAsync(userId);
-
-                ViewBag.DriverId = new SelectList(new List<ApplicationUser> { driver }, "Id", "Email", userId);
-                ViewBag.DriverIdValue = userId;
-                ViewBag.DriverName = driver.Email;
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var currentUser = await _userManager.FindByIdAsync(currentUserId);
+                // FIX: Specify dataValueField and dataTextField
+                ViewBag.DriverId = new SelectList(new List<ApplicationUser> { currentUser }, "Id", "Email", currentUserId);
             }
-
+            else // For Admin/Operator, show all drivers
+            {
+                // FIX: Specify dataValueField and dataTextField
+                ViewBag.DriverId = new SelectList(await _userManager.GetUsersInRoleAsync("Driver"), "Id", "Email");
+            }
             return View();
         }
 
+        // POST: FuelRecords/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Fleet Administrator,Driver")]
-        public async Task<IActionResult> Create([Bind("VehicleId,Date,FuelQuantity,Cost,OdometerReadingKm,Location,DriverId")] FuelRecord fuelRecord)
+        public async Task<IActionResult> Create([Bind("FuelId,VehicleId,DriverId,Date,FuelQuantity,Cost,OdometerReadingKm,Location")] FuelRecord fuelRecord)
         {
-            if (User.IsInRole("Driver"))
-            {
-                fuelRecord.DriverId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            }
-
-            ModelState.Remove("Vehicle");
-            ModelState.Remove("Driver");
-
             if (ModelState.IsValid)
             {
+                // Ensure driverId is set correctly if only a hidden field is used for drivers
+                if (User.IsInRole("Driver") && string.IsNullOrEmpty(fuelRecord.DriverId))
+                {
+                    fuelRecord.DriverId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                }
+
                 await _fuelService.AddFuelRecordAsync(fuelRecord);
                 return RedirectToAction(nameof(Index));
             }
-
-            await PopulateDropdowns(fuelRecord.VehicleId, fuelRecord.DriverId);
+            // If model state is not valid, re-populate ViewBags
+            // FIX: Specify dataValueField and dataTextField
+            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber", fuelRecord.VehicleId);
+            if (User.IsInRole("Driver") && !User.IsInRole("Fleet Administrator") && !User.IsInRole("Fleet Operator"))
+            {
+                var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var currentUser = await _userManager.FindByIdAsync(currentUserId);
+                // FIX: Specify dataValueField and dataTextField
+                ViewBag.DriverId = new SelectList(new List<ApplicationUser> { currentUser }, "Id", "Email", currentUserId);
+            }
+            else
+            {
+                // FIX: Specify dataValueField and dataTextField
+                ViewBag.DriverId = new SelectList(await _userManager.GetUsersInRoleAsync("Driver"), "Id", "Email", fuelRecord.DriverId);
+            }
             return View(fuelRecord);
         }
 
-        [Authorize(Roles = "Fleet Administrator")]
+        // GET: FuelRecords/Edit/5
+        [Authorize(Roles = "Fleet Administrator")] // Only Admin can edit any fuel record
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null) return NotFound();
+            if (id == null)
+            {
+                return NotFound();
+            }
 
             var fuelRecord = await _fuelService.GetFuelRecordByIdAsync(id.Value);
-            if (fuelRecord == null) return NotFound();
-
-            await PopulateDropdowns(fuelRecord.VehicleId, fuelRecord.DriverId);
+            if (fuelRecord == null)
+            {
+                return NotFound();
+            }
+            // FIX: Specify dataValueField and dataTextField
+            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber", fuelRecord.VehicleId);
+            // FIX: Specify dataValueField and dataTextField
+            ViewBag.DriverId = new SelectList(await _userManager.GetUsersInRoleAsync("Driver"), "Id", "Email", fuelRecord.DriverId);
             return View(fuelRecord);
         }
 
+        // POST: FuelRecords/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Fleet Administrator")]
-        public async Task<IActionResult> Edit(int id, [Bind("FuelId,VehicleId,Date,FuelQuantity,Cost,OdometerReadingKm,Location,DriverId")] FuelRecord fuelRecord)
+        public async Task<IActionResult> Edit(int id, [Bind("FuelId,VehicleId,DriverId,Date,FuelQuantity,Cost,OdometerReadingKm,Location")] FuelRecord fuelRecord)
         {
-            if (id != fuelRecord.FuelId) return NotFound();
-
-            ModelState.Remove("Vehicle");
-            ModelState.Remove("Driver");
+            if (id != fuelRecord.FuelId)
+            {
+                return NotFound();
+            }
 
             if (ModelState.IsValid)
             {
@@ -137,28 +182,43 @@ namespace TFMS.Controllers
                 catch (DbUpdateConcurrencyException)
                 {
                     if (!await _fuelService.FuelRecordExistsAsync(fuelRecord.FuelId))
+                    {
                         return NotFound();
+                    }
                     else
+                    {
                         throw;
+                    }
                 }
                 return RedirectToAction(nameof(Index));
             }
-
-            await PopulateDropdowns(fuelRecord.VehicleId, fuelRecord.DriverId);
+            // If model state is not valid, re-populate ViewBags
+            // FIX: Specify dataValueField and dataTextField
+            ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber", fuelRecord.VehicleId);
+            // FIX: Specify dataValueField and dataTextField
+            ViewBag.DriverId = new SelectList(await _userManager.GetUsersInRoleAsync("Driver"), "Id", "Email", fuelRecord.DriverId);
             return View(fuelRecord);
         }
 
+        // GET: FuelRecords/Delete/5
         [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null) return NotFound();
+            if (id == null)
+            {
+                return NotFound();
+            }
 
             var fuelRecord = await _fuelService.GetFuelRecordByIdAsync(id.Value);
-            if (fuelRecord == null) return NotFound();
+            if (fuelRecord == null)
+            {
+                return NotFound();
+            }
 
             return View(fuelRecord);
         }
 
+        // POST: FuelRecords/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Fleet Administrator")]

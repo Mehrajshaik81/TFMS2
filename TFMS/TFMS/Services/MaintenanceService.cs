@@ -1,11 +1,10 @@
 ﻿// Services/MaintenanceService.cs
 using Microsoft.EntityFrameworkCore;
-
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using TFMS.Data;
 using TFMS.Models;
-using TFMS.Services;
 
 namespace TFMS.Services
 {
@@ -18,52 +17,60 @@ namespace TFMS.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<Maintenance>> GetAllMaintenanceRecordsAsync()
+        public async Task<IEnumerable<Maintenance>> GetAllMaintenanceRecordsAsync(string? searchString = null, string? statusFilter = null, int? vehicleIdFilter = null, string? maintenanceTypeFilter = null) // <<< MODIFIED
         {
-            return await _context.MaintenanceRecords.Include(m => m.Vehicle).ToListAsync();
+            var maintenanceRecords = _context.MaintenanceRecords
+                                                .Include(m => m.Vehicle) // Include Vehicle for filtering/display
+                                                .AsQueryable(); // Start with IQueryable
+
+            // Apply search string filter (by Description or PerformedBy)
+            if (!string.IsNullOrEmpty(searchString))
+            {
+                maintenanceRecords = maintenanceRecords.Where(m => m.Description.Contains(searchString) ||
+                                                                 (m.PerformedBy != null && m.PerformedBy.Contains(searchString)));
+            }
+
+            // Apply status filter
+            if (!string.IsNullOrEmpty(statusFilter) && statusFilter != "All")
+            {
+                maintenanceRecords = maintenanceRecords.Where(m => m.Status == statusFilter);
+            }
+
+            // Apply vehicle filter by VehicleId
+            if (vehicleIdFilter.HasValue && vehicleIdFilter.Value > 0)
+            {
+                maintenanceRecords = maintenanceRecords.Where(m => m.VehicleId == vehicleIdFilter.Value);
+            }
+
+            // Apply maintenance type filter
+            if (!string.IsNullOrEmpty(maintenanceTypeFilter) && maintenanceTypeFilter != "All")
+            {
+                maintenanceRecords = maintenanceRecords.Where(m => m.MaintenanceType == maintenanceTypeFilter);
+            }
+
+            return await maintenanceRecords.ToListAsync(); // Execute query
         }
 
-        public async Task<Maintenance?> GetMaintenanceByIdAsync(int id)
+        public async Task<Maintenance?> GetMaintenanceRecordByIdAsync(int id)
         {
-            return await _context.MaintenanceRecords.Include(m => m.Vehicle).FirstOrDefaultAsync(m => m.MaintenanceId == id);
+            return await _context.MaintenanceRecords
+                                 .Include(m => m.Vehicle)
+                                 .FirstOrDefaultAsync(m => m.MaintenanceId == id);
         }
 
-        public async Task AddMaintenanceAsync(Maintenance maintenance)
+        public async Task AddMaintenanceRecordAsync(Maintenance maintenance)
         {
             _context.Add(maintenance);
             await _context.SaveChangesAsync();
-
-            // Optional: Update vehicle status if it goes into maintenance
-            if (maintenance.Vehicle != null && maintenance.Status == "In Progress")
-            {
-                maintenance.Vehicle.Status = "In Maintenance";
-                _context.Vehicles.Update(maintenance.Vehicle);
-                await _context.SaveChangesAsync();
-            }
         }
 
-        public async Task UpdateMaintenanceAsync(Maintenance maintenance)
+        public async Task UpdateMaintenanceRecordAsync(Maintenance maintenance)
         {
             _context.Update(maintenance);
             await _context.SaveChangesAsync();
-
-            // Optional: Update vehicle status if maintenance is completed
-            if (maintenance.Vehicle != null && maintenance.Status == "Completed")
-            {
-                // Check if there are other ongoing maintenance records for this vehicle
-                var hasOngoingMaintenance = await _context.MaintenanceRecords
-                    .AnyAsync(m => m.VehicleId == maintenance.VehicleId && m.Status == "In Progress" && m.MaintenanceId != maintenance.MaintenanceId);
-
-                if (!hasOngoingMaintenance)
-                {
-                    maintenance.Vehicle.Status = "Active"; // Set back to active if no other maintenance is ongoing
-                    _context.Vehicles.Update(maintenance.Vehicle);
-                    await _context.SaveChangesAsync();
-                }
-            }
         }
 
-        public async Task DeleteMaintenanceAsync(int id)
+        public async Task DeleteMaintenanceRecordAsync(int id)
         {
             var maintenance = await _context.MaintenanceRecords.FindAsync(id);
             if (maintenance != null)
@@ -73,7 +80,7 @@ namespace TFMS.Services
             }
         }
 
-        public async Task<bool> MaintenanceExistsAsync(int id)
+        public async Task<bool> MaintenanceRecordExistsAsync(int id)
         {
             return await _context.MaintenanceRecords.AnyAsync(e => e.MaintenanceId == id);
         }
