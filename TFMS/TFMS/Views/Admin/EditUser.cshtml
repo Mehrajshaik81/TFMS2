@@ -1,0 +1,90 @@
+﻿@model TFMS.ViewModels.UserViewModel
+
+@{
+    ViewData["Title"] = "Edit User";
+}
+
+<h1>Edit User</h1>
+
+<h4>@Model.Email</h4>
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="EditUser">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <input type="hidden" asp-for="Id" /> @* Hidden field for User ID *@
+            <div class="form-group">
+                <label asp-for="Email" class="control-label"></label>
+                <input asp-for="Email" class="form-control" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="FirstName" class="control-label"></label>
+                <input asp-for="FirstName" class="form-control" />
+                <span asp-validation-for="FirstName" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="LastName" class="control-label"></label>
+                <input asp-for="LastName" class="form-control" />
+                <span asp-validation-for="LastName" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="EmployeeId" class="control-label"></label>
+                <input asp-for="EmployeeId" class="form-control" />
+                <span asp-validation-for="EmployeeId" class="text-danger"></span>
+            </div>
+            <div class="form-group form-check">
+                <input class="form-check-input" asp-for="IsActiveDriver" />
+                <label class="form-check-label" asp-for="IsActiveDriver"></label>
+            </div>
+            <div class="form-group">
+                <label asp-for="DrivingLicenseNumber" class="control-label"></label>
+                <input asp-for="DrivingLicenseNumber" class="form-control" />
+                <span asp-validation-for="DrivingLicenseNumber" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="LicenseExpiryDate" class="control-label"></label>
+                <input asp-for="LicenseExpiryDate" class="form-control" type="date" />
+                <span asp-validation-for="LicenseExpiryDate" class="text-danger"></span>
+            </div>
+
+            <h5 class="mt-4">Roles</h5>
+            <div class="form-group">
+                @foreach (var role in (SelectList)ViewBag.AvailableRoles)
+                {
+                    var isChecked = Model.Roles.Contains(role.Text);
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="Roles" value="@role.Text" id="role-@role.Text.Replace(" ", "-")" @(isChecked ? "checked" : "") />
+                        <label class="form-check-label" for="role-@role.Text.Replace(" ", "-")">
+                            @role.Text
+                        </label>
+                    </div>
+                }
+            </div>
+
+            <h5 class="mt-4">Reset Password (Leave blank to keep current password)</h5>
+            <div class="form-group">
+                <label asp-for="Password" class="control-label"></label>
+                <input asp-for="Password" class="form-control" type="password" />
+                <span asp-validation-for="Password" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ConfirmPassword" class="control-label"></label>
+                <input asp-for="ConfirmPassword" class="form-control" type="password" />
+                <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mt-3">
+                <input type="submit" value="Save" class="btn btn-primary" />
+            </div>
+        </form>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Users">Back to User List</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

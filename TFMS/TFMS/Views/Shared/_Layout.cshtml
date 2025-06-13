@@ -41,6 +41,12 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="PerformanceReports" asp-action="Index">Reports</a>
                         </li>
                         <!-- Add more nav items here later for other modules -->
+                        @if (User.IsInRole("Fleet Administrator"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Users">Admin Panel</a>
+                            </li>
+                        }
                     </ul>
                     <partial name="_LoginPartial" />
                 </div>
