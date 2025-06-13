@@ -1,11 +1,11 @@
 ﻿// Models/FuelRecord.cs
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using TFMS.Models;
-namespace TFMS.Models
+using TFMS.Models; // Ensure this is your correct namespace
+
+namespace TFMS.Models // Your correct namespace
 {
-
-
     public class FuelRecord
     {
         [Key]
@@ -13,37 +13,34 @@ namespace TFMS.Models
 
         [Required]
         [Display(Name = "Vehicle")]
-        public int VehicleId { get; set; } // Foreign Key
-
+        public int VehicleId { get; set; }
         [ForeignKey("VehicleId")]
         public Vehicle? Vehicle { get; set; } // Navigation property
 
+        [Display(Name = "Driver")]
+        public string? DriverId { get; set; } // Foreign key to ApplicationUser
+        [ForeignKey("DriverId")]
+        public ApplicationUser? Driver { get; set; } // Navigation property
+
         [Required]
         [DataType(DataType.Date)]
-        [Display(Name = "Date of Fueling")]
-        public DateTime Date { get; set; }
+        [Display(Name = "Date")]
+        public DateTime? Date { get; set; } // <<< ENSURE THIS IS NULLABLE
 
         [Required]
-        [Range(0.01, double.MaxValue)]
-        [Display(Name = "Fuel Quantity (Liters)")]
-        public double FuelQuantity { get; set; }
+        [Display(Name = "Fuel Quantity (L)")]
+        [Column(TypeName = "decimal(18,2)")] // Specify precision and scale for currency/quantity
+        public decimal? FuelQuantity { get; set; } // <<< ENSURE THIS IS NULLABLE
 
         [Required]
-        [Range(0.01, double.MaxValue)]
-        [DataType(DataType.Currency)]
-        [Column(TypeName = "decimal(18, 2)")] // For precise currency handling
-        public decimal Cost { get; set; }
+        [Display(Name = "Cost")]
+        [Column(TypeName = "decimal(18,2)")] // Specify precision and scale
+        public decimal? Cost { get; set; } // <<< ENSURE THIS IS NULLABLE
 
-        [Display(Name = "Odometer Reading (Km)")]
-        [Range(0, double.MaxValue)]
-        public double? OdometerReadingKm { get; set; } // Optional, but highly recommended for efficiency calculation
+        [Display(Name = "Odometer Reading (km)")]
+        public double? OdometerReadingKm { get; set; } // <<< ENSURE THIS IS NULLABLE
 
         [StringLength(200)]
-        public string? Location { get; set; }
-
-        // Optional: Link to the driver who filled the fuel
-        public string? DriverId { get; set; }
-        [ForeignKey("DriverId")]
-        public ApplicationUser? Driver { get; set; }
+        public string? Location { get; set; } // Where fuel was filled
     }
 }

@@ -1,8 +1,10 @@
 ﻿// Models/Maintenance.cs
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using TFMS.Models;
-namespace TFMS.Models
+using TFMS.Models; // Ensure this is your correct namespace
+
+namespace TFMS.Models // Your correct namespace
 {
     public class Maintenance
     {
@@ -11,8 +13,7 @@ namespace TFMS.Models
 
         [Required]
         [Display(Name = "Vehicle")]
-        public int VehicleId { get; set; } // Foreign Key
-
+        public int VehicleId { get; set; }
         [ForeignKey("VehicleId")]
         public Vehicle? Vehicle { get; set; } // Navigation property
 
@@ -23,32 +24,29 @@ namespace TFMS.Models
         [Required]
         [DataType(DataType.Date)]
         [Display(Name = "Scheduled Date")]
-        public DateTime ScheduledDate { get; set; }
+        public DateTime? ScheduledDate { get; set; } // <<< ENSURE THIS IS NULLABLE
 
         [Required]
         [StringLength(50)]
-        [Display(Name = "Status")] // e.g., Scheduled, Completed, Overdue, Cancelled
-        public string Status { get; set; } = "Scheduled";
+        public string Status { get; set; } = "Scheduled"; // e.g., Scheduled, In Progress, Completed, Overdue, Cancelled
 
         [DataType(DataType.Date)]
         [Display(Name = "Actual Completion Date")]
-        public DateTime? ActualCompletionDate { get; set; }
+        public DateTime? ActualCompletionDate { get; set; } // <<< ENSURE THIS IS NULLABLE
 
-        [Range(0.01, double.MaxValue)]
-        [DataType(DataType.Currency)]
-        [Column(TypeName = "decimal(18, 2)")] // For precise currency handling
-        public decimal? Cost { get; set; }
+        [Display(Name = "Cost")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? Cost { get; set; } // <<< ENSURE THIS IS NULLABLE
 
-        [Display(Name = "Odometer Reading (Km)")]
-        [Range(0, double.MaxValue)]
-        public double? OdometerReadingKm { get; set; }
+        [Display(Name = "Odometer Reading (km)")]
+        public double? OdometerReadingKm { get; set; } // <<< ENSURE THIS IS NULLABLE
 
-        [StringLength(200)]
-        [Display(Name = "Performed By")] // e.g., Internal team, Vendor name
-        public string? PerformedBy { get; set; }
+        [StringLength(100)]
+        [Display(Name = "Performed By")]
+        public string? PerformedBy { get; set; } // Mechanic name or company
 
-        [StringLength(50)]
-        [Display(Name = "Maintenance Type")] // e.g., Preventive, Corrective, Repair
-        public string? MaintenanceType { get; set; }
+        [StringLength(100)]
+        [Display(Name = "Maintenance Type")]
+        public string? MaintenanceType { get; set; } // e.g., Routine, Repair, Inspection
     }
 }

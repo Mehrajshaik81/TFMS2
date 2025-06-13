@@ -1,23 +1,21 @@
-﻿// Controllers/FuelRecordsController.cs
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering; // For SelectList
-using Microsoft.EntityFrameworkCore; // For DbUpdateConcurrencyException
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TFMS.Data;
 using TFMS.Models;
 using TFMS.Services;
-// For IFuelService, IVehicleService new service
 
 namespace TFMS.Controllers
 {
-    [Authorize] // All actions require authentication
+    [Authorize]
     public class FuelRecordsController : Controller
     {
         private readonly IFuelService _fuelService;
-        private readonly IVehicleService _vehicleService; // To get list of vehicles
-        private readonly ApplicationDbContext _context; // For getting drivers
+        private readonly IVehicleService _vehicleService;
+        private readonly ApplicationDbContext _context;
 
-        // Constructor injection
         public FuelRecordsController(IFuelService fuelService, IVehicleService vehicleService, ApplicationDbContext context)
         {
             _fuelService = fuelService;
@@ -25,98 +23,76 @@ namespace TFMS.Controllers
             _context = context;
         }
 
-        // Helper method to populate Vehicle and Driver dropdowns
         private async Task PopulateDropdowns(int? selectedVehicle = null, string? selectedDriver = null)
         {
             ViewBag.VehicleId = new SelectList(await _vehicleService.GetAllVehiclesAsync(), "VehicleId", "RegistrationNumber", selectedVehicle);
 
-            // Get all users who are marked as active drivers for the dropdown
             var drivers = await _context.Users
                                         .Where(u => u.IsActiveDriver)
                                         .ToListAsync();
-            ViewBag.DriverId = new SelectList(drivers, "Id", "Email", selectedDriver); // Using Id for value, Email for display
+            ViewBag.DriverId = new SelectList(drivers, "Id", "Email", selectedDriver);
         }
 
-        // GET: FuelRecords
-        // Fleet Administrator, Fleet Operator, and Driver can view fuel records (Driver sees their own)
         [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
         public async Task<IActionResult> Index()
         {
-            // If the user is a Driver, only show their own fuel records
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
             if (User.IsInRole("Driver"))
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (userId == null)
-                {
-                    return Forbid(); // Should not happen if authenticated, but good safeguard
-                }
                 var driverFuelRecords = await _fuelService.GetAllFuelRecordsAsync();
                 return View(driverFuelRecords.Where(f => f.DriverId == userId).ToList());
             }
-            // Otherwise, show all fuel records for Fleet Admin/Operator
-            else
-            {
-                var allFuelRecords = await _fuelService.GetAllFuelRecordsAsync();
-                return View(allFuelRecords);
-            }
+
+            var allFuelRecords = await _fuelService.GetAllFuelRecordsAsync();
+            return View(allFuelRecords);
         }
 
-        // GET: FuelRecords/Details/5
-        // Fleet Administrator, Fleet Operator, and Driver can view fuel record details
         [Authorize(Roles = "Fleet Administrator,Fleet Operator,Driver")]
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var fuelRecord = await _fuelService.GetFuelRecordByIdAsync(id.Value);
-            if (fuelRecord == null)
-            {
-                return NotFound();
-            }
+            if (fuelRecord == null) return NotFound();
 
-            // If user is a Driver, ensure they can only view their own record
-            if (User.IsInRole("Driver") && fuelRecord.DriverId != User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (User.IsInRole("Driver") && fuelRecord.DriverId != userId)
             {
-                return Forbid(); // Driver trying to view another driver's record
+                return Forbid();
             }
 
             return View(fuelRecord);
         }
 
-        // GET: FuelRecords/Create
-        // Fleet Administrator and Driver can create fuel records
         [Authorize(Roles = "Fleet Administrator,Driver")]
         public async Task<IActionResult> Create()
         {
             await PopulateDropdowns();
 
-            // Pre-select current user as driver if they are a driver
             if (User.IsInRole("Driver"))
             {
-                ViewBag.DriverId = new SelectList(
-                    new List<ApplicationUser> { await _context.Users.FindAsync(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value) },
-                    "Id", "Email", User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                );
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var driver = await _context.Users.FindAsync(userId);
+
+                ViewBag.DriverId = new SelectList(new List<ApplicationUser> { driver }, "Id", "Email", userId);
+                ViewBag.DriverIdValue = userId;
+                ViewBag.DriverName = driver.Email;
             }
+
             return View();
         }
 
-        // POST: FuelRecords/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Fleet Administrator,Driver")]
         public async Task<IActionResult> Create([Bind("VehicleId,Date,FuelQuantity,Cost,OdometerReadingKm,Location,DriverId")] FuelRecord fuelRecord)
         {
-            // If the user is a driver, force their DriverId to prevent them from creating records for others
             if (User.IsInRole("Driver"))
             {
-                fuelRecord.DriverId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                fuelRecord.DriverId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             }
 
-            // Remove navigation properties from ModelState to prevent validation errors on FKs
             ModelState.Remove("Vehicle");
             ModelState.Remove("Driver");
 
@@ -126,41 +102,28 @@ namespace TFMS.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // If ModelState is invalid, repopulate dropdowns
             await PopulateDropdowns(fuelRecord.VehicleId, fuelRecord.DriverId);
             return View(fuelRecord);
         }
 
-        // GET: FuelRecords/Edit/5
-        // Only Fleet Administrator can edit fuel records (drivers can only create)
         [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var fuelRecord = await _fuelService.GetFuelRecordByIdAsync(id.Value);
-            if (fuelRecord == null)
-            {
-                return NotFound();
-            }
+            if (fuelRecord == null) return NotFound();
 
             await PopulateDropdowns(fuelRecord.VehicleId, fuelRecord.DriverId);
             return View(fuelRecord);
         }
 
-        // POST: FuelRecords/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Edit(int id, [Bind("FuelId,VehicleId,Date,FuelQuantity,Cost,OdometerReadingKm,Location,DriverId")] FuelRecord fuelRecord)
         {
-            if (id != fuelRecord.FuelId)
-            {
-                return NotFound();
-            }
+            if (id != fuelRecord.FuelId) return NotFound();
 
             ModelState.Remove("Vehicle");
             ModelState.Remove("Driver");
@@ -174,40 +137,28 @@ namespace TFMS.Controllers
                 catch (DbUpdateConcurrencyException)
                 {
                     if (!await _fuelService.FuelRecordExistsAsync(fuelRecord.FuelId))
-                    {
                         return NotFound();
-                    }
                     else
-                    {
                         throw;
-                    }
                 }
                 return RedirectToAction(nameof(Index));
             }
+
             await PopulateDropdowns(fuelRecord.VehicleId, fuelRecord.DriverId);
             return View(fuelRecord);
         }
 
-        // GET: FuelRecords/Delete/5
-        // Only Fleet Administrator can delete fuel records
         [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var fuelRecord = await _fuelService.GetFuelRecordByIdAsync(id.Value);
-            if (fuelRecord == null)
-            {
-                return NotFound();
-            }
+            if (fuelRecord == null) return NotFound();
 
             return View(fuelRecord);
         }
 
-        // POST: FuelRecords/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Fleet Administrator")]

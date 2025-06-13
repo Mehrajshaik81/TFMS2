@@ -55,5 +55,12 @@ namespace TFMS.Services
         {
             return await _context.Vehicles.AnyAsync(e => e.VehicleId == id);
         }
+
+
+        public async Task<bool> IsVehicleInUseAsync(int vehicleId)
+        {
+            return await _context.Trips.AnyAsync(t => t.VehicleId == vehicleId);
+        }
+
     }
 }

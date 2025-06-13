@@ -1,53 +1,51 @@
 ﻿// Models/Vehicle.cs
+using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema; // For [Column]
+using TFMS.Models; // Ensure this is your correct namespace
 
-namespace TFMS.Models
-{
-
-
+namespace TFMS.Models // Your correct namespace
+{ 
     public class Vehicle
     {
-        [Key] // Primary Key
+        [Key]
         public int VehicleId { get; set; }
 
         [Required]
-        [StringLength(50)]
+        [StringLength(20)]
         [Display(Name = "Registration Number")]
         public string RegistrationNumber { get; set; } = string.Empty;
 
-        [Range(0, double.MaxValue)]
-        [Display(Name = "Capacity (Tons/CBM)")] // Could be tons or cubic meters
-        public double Capacity { get; set; }
+        [Display(Name = "Capacity (kg/passengers)")]
+        public int Capacity { get; set; } // This should be non-nullable, as capacity is usually a definite number
 
         [Required]
         [StringLength(50)]
-        [Display(Name = "Status")] // e.g., Active, In Maintenance, Out of Service
-        public string Status { get; set; } = "Active";
+        public string Status { get; set; } = "Active"; // e.g., Active, In Maintenance, Out of Service, Retired
 
         [DataType(DataType.Date)]
         [Display(Name = "Last Serviced Date")]
-        public DateTime? LastServicedDate { get; set; }
+        public DateTime? LastServicedDate { get; set; } // <<< ENSURE THIS IS NULLABLE
 
+        [Required]
         [StringLength(100)]
         public string Make { get; set; } = string.Empty;
 
+        [Required]
         [StringLength(100)]
         public string Model { get; set; } = string.Empty;
 
-        [Range(1900, 2100)]
-        public int ManufacturingYear { get; set; }
+        [Display(Name = "Manufacturing Year")]
+        public int ManufacturingYear { get; set; } // This should be non-nullable, as year is a definite number
 
         [Required]
         [StringLength(50)]
-        [Display(Name = "Fuel Type")] // e.g., Diesel, Petrol, Electric
-        public string FuelType { get; set; } = string.Empty;
+        [Display(Name = "Fuel Type")]
+        public string FuelType { get; set; } = "Petrol"; // e.g., Petrol, Diesel, Electric
 
-        [Display(Name = "Current Odometer (Km)")]
-        [Range(0, double.MaxValue)]
-        public double CurrentOdometerKm { get; set; }
+        [Display(Name = "Current Odometer (km)")]
+        public double? CurrentOdometerKm { get; set; } // <<< ENSURE THIS IS NULLABLE
 
-        // Navigation properties
+        // Navigation properties for related entities
         public ICollection<Trip>? Trips { get; set; }
         public ICollection<FuelRecord>? FuelRecords { get; set; }
         public ICollection<Maintenance>? MaintenanceRecords { get; set; }

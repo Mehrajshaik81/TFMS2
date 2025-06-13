@@ -14,5 +14,9 @@ namespace TFMS.Services
         Task UpdateVehicleAsync(Vehicle vehicle);
         Task DeleteVehicleAsync(int id);
         Task<bool> VehicleExistsAsync(int id); // Helper method
+
+
+        Task<bool> IsVehicleInUseAsync(int vehicleId);
+
     }
 }

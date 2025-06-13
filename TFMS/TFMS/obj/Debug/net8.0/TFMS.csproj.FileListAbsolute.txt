@@ -136,6 +136,7 @@ C:\Users\2406753\source\repos\TFMS\TFMS\obj\Debug\net8.0\TFMS.MvcApplicationPart
 C:\Users\2406753\source\repos\TFMS\TFMS\obj\Debug\net8.0\TFMS.MvcApplicationPartsAssemblyInfo.cache
 C:\Users\2406753\source\repos\TFMS\TFMS\obj\Debug\net8.0\TFMS.RazorAssemblyInfo.cache
 C:\Users\2406753\source\repos\TFMS\TFMS\obj\Debug\net8.0\TFMS.RazorAssemblyInfo.cs
+C:\Users\2406753\source\repos\TFMS\TFMS\obj\Debug\net8.0\TFMS.sourcelink.json
 C:\Users\2406753\source\repos\TFMS\TFMS\obj\Debug\net8.0\scopedcss\Views\Shared\_Layout.cshtml.rz.scp.css
 C:\Users\2406753\source\repos\TFMS\TFMS\obj\Debug\net8.0\scopedcss\bundle\TFMS.styles.css
 C:\Users\2406753\source\repos\TFMS\TFMS\obj\Debug\net8.0\scopedcss\projectbundle\TFMS.bundle.scp.css

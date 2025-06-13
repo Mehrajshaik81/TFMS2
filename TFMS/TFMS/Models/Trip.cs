@@ -1,8 +1,10 @@
 ﻿// Models/Trip.cs
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using TFMS.Models;
-namespace TFMS.Models
+using TFMS.Models; // Ensure this is your correct namespace
+
+namespace TFMS.Models // Your correct namespace
 {
     public class Trip
     {
@@ -11,15 +13,12 @@ namespace TFMS.Models
 
         [Required]
         [Display(Name = "Vehicle")]
-        public int VehicleId { get; set; } // Foreign Key
-
+        public int VehicleId { get; set; }
         [ForeignKey("VehicleId")]
         public Vehicle? Vehicle { get; set; } // Navigation property
 
-        [Required]
         [Display(Name = "Driver")]
-        public string DriverId { get; set; } = string.Empty; // Foreign Key (string because IdentityUser.Id is string)
-
+        public string? DriverId { get; set; } // Foreign key to ApplicationUser (string because IdentityUser.Id is string)
         [ForeignKey("DriverId")]
         public ApplicationUser? Driver { get; set; } // Navigation property
 
@@ -36,35 +35,33 @@ namespace TFMS.Models
         [Required]
         [DataType(DataType.DateTime)]
         [Display(Name = "Scheduled Start Time")]
-        public DateTime ScheduledStartTime { get; set; }
+        public DateTime? ScheduledStartTime { get; set; } // <<< ENSURE THIS IS NULLABLE
 
         [Required]
         [DataType(DataType.DateTime)]
         [Display(Name = "Scheduled End Time")]
-        public DateTime ScheduledEndTime { get; set; }
+        public DateTime? ScheduledEndTime { get; set; } // <<< ENSURE THIS IS NULLABLE
 
+        [Required]
         [StringLength(50)]
-        [Display(Name = "Current Status")] // e.g., Pending, In Progress, Completed, Delayed, Canceled
-        public string Status { get; set; } = "Pending";
+        public string Status { get; set; } = "Pending"; // e.g., Pending, In Progress, Completed, Delayed, Canceled
 
         [DataType(DataType.DateTime)]
         [Display(Name = "Actual Start Time")]
-        public DateTime? ActualStartTime { get; set; }
+        public DateTime? ActualStartTime { get; set; } // <<< ENSURE THIS IS NULLABLE
 
         [DataType(DataType.DateTime)]
         [Display(Name = "Actual End Time")]
-        public DateTime? ActualEndTime { get; set; }
+        public DateTime? ActualEndTime { get; set; } // <<< ENSURE THIS IS NULLABLE
 
-        [Display(Name = "Estimated Distance (Km)")]
-        [Range(0, double.MaxValue)]
-        public double EstimatedDistanceKm { get; set; }
+        [Display(Name = "Estimated Distance (km)")]
+        public double? EstimatedDistanceKm { get; set; } // <<< ENSURE THIS IS NULLABLE
 
-        [Display(Name = "Actual Distance (Km)")]
-        [Range(0, double.MaxValue)]
-        public double? ActualDistanceKm { get; set; }
+        [Display(Name = "Actual Distance (km)")]
+        public double? ActualDistanceKm { get; set; } // <<< ENSURE THIS IS NULLABLE
 
         [StringLength(500)]
         [Display(Name = "Route Details")]
-        public string? RouteDetails { get; set; } // Could be a JSON string for complex route info
+        public string? RouteDetails { get; set; }
     }
 }
