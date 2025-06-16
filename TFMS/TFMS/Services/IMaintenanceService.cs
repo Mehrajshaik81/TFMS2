@@ -7,8 +7,8 @@ namespace TFMS.Services
 {
     public interface IMaintenanceService
     {
-        // Add new parameters for search string, status, vehicle, and maintenance type
-        Task<IEnumerable<Maintenance>> GetAllMaintenanceRecordsAsync(string? searchString = null, string? statusFilter = null, int? vehicleIdFilter = null, string? maintenanceTypeFilter = null); // <<< MODIFIED
+        // No change to this method signature for statusFilter
+        Task<IEnumerable<Maintenance>> GetAllMaintenanceRecordsAsync(string? searchString = null, string? statusFilter = null, int? vehicleIdFilter = null, string? maintenanceTypeFilter = null);
         Task<Maintenance?> GetMaintenanceRecordByIdAsync(int id);
         Task AddMaintenanceRecordAsync(Maintenance maintenance);
         Task UpdateMaintenanceRecordAsync(Maintenance maintenance);

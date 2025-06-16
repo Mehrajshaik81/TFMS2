@@ -1,5 +1,4 @@
-﻿<!-- Views/MaintenanceRecords/Create.cshtml -->
-@model TFMS.Models.Maintenance
+﻿@model TFMS.Models.Maintenance
 
 @{
     ViewData["Title"] = "Schedule New Maintenance";
@@ -15,7 +14,7 @@
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <div class="form-group">
                 <label asp-for="VehicleId" class="control-label"></label>
-                <select asp-for="VehicleId" class ="form-control" asp-items="ViewBag.VehicleId"></select>
+                <select asp-for="VehicleId" class="form-control" asp-items="ViewBag.VehicleId"></select>
                 <span asp-validation-for="VehicleId" class="text-danger"></span>
             </div>
             <div class="form-group">
@@ -25,17 +24,18 @@
             </div>
             <div class="form-group">
                 <label asp-for="ScheduledDate" class="control-label"></label>
-                <input asp-for="ScheduledDate" class="form-control" />
+                <input asp-for="ScheduledDate" class="form-control" type="date" />
                 <span asp-validation-for="ScheduledDate" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="Status" class="control-label"></label>
-                <input asp-for="Status" class="form-control" value="Scheduled" readonly/> @* Default to Scheduled, make read-only *@
+                @* Use asp-items with ViewBag.StatusOptions for enum dropdown *@
+                <select asp-for="Status" class="form-control" asp-items="ViewBag.StatusOptions"></select>
                 <span asp-validation-for="Status" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="ActualCompletionDate" class="control-label"></label>
-                <input asp-for="ActualCompletionDate" class="form-control" />
+                <input asp-for="ActualCompletionDate" class="form-control" type="date" />
                 <span asp-validation-for="ActualCompletionDate" class="text-danger"></span>
             </div>
             <div class="form-group">

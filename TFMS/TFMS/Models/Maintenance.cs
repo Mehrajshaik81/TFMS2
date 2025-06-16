@@ -24,29 +24,28 @@ namespace TFMS.Models // Your correct namespace
         [Required]
         [DataType(DataType.Date)]
         [Display(Name = "Scheduled Date")]
-        public DateTime? ScheduledDate { get; set; } // <<< ENSURE THIS IS NULLABLE
+        public DateTime? ScheduledDate { get; set; }
 
-        [Required]
-        [StringLength(50)]
-        public string Status { get; set; } = "Scheduled"; // e.g., Scheduled, In Progress, Completed, Overdue, Cancelled
+        [Required] // Status is now an enum
+        public MaintenanceStatus Status { get; set; } = MaintenanceStatus.Scheduled; // Default value
 
         [DataType(DataType.Date)]
         [Display(Name = "Actual Completion Date")]
-        public DateTime? ActualCompletionDate { get; set; } // <<< ENSURE THIS IS NULLABLE
+        public DateTime? ActualCompletionDate { get; set; }
 
         [Display(Name = "Cost")]
         [Column(TypeName = "decimal(18,2)")]
-        public decimal? Cost { get; set; } // <<< ENSURE THIS IS NULLABLE
+        public decimal? Cost { get; set; }
 
         [Display(Name = "Odometer Reading (km)")]
-        public double? OdometerReadingKm { get; set; } // <<< ENSURE THIS IS NULLABLE
+        public double? OdometerReadingKm { get; set; }
 
         [StringLength(100)]
         [Display(Name = "Performed By")]
-        public string? PerformedBy { get; set; } // Mechanic name or company
+        public string? PerformedBy { get; set; }
 
         [StringLength(100)]
         [Display(Name = "Maintenance Type")]
-        public string? MaintenanceType { get; set; } // e.g., Routine, Repair, Inspection
+        public string? MaintenanceType { get; set; }
     }
 }

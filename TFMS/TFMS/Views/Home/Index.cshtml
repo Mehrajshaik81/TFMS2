@@ -1,191 +1,199 @@
-﻿@model TFMS.Models.DashboardViewModel 
-@* Ensure this matches your correct namespace *@
+﻿@model TFMS.Models.DashboardViewModel
 
 @{
     ViewData["Title"] = "Dashboard";
 }
 
-<h1 class="mb-4">Welcome to Your TFMS Dashboard!</h1>
+<h1>Welcome to Your TFMS Dashboard!</h1>
+<hr />
 
-<div class="row">
-    @* --- Administrator / Fleet Operator Dashboard --- *@
-    @if (User.IsInRole("Fleet Administrator") || User.IsInRole("Fleet Operator"))
-    {
-        <div class="col-md-12 mb-4">
-            <h2>Fleet Overview</h2>
-            <hr />
-        </div>
-
-        <div class="col-md-4 mb-3">
-            <div class="card text-white bg-primary mb-3 shadow-sm rounded-lg">
-                <div class="card-header">Vehicle Status</div>
-                <div class="card-body">
-                    <h4 class="card-title">Total: @Model.TotalVehicles</h4>
-                    <p class="card-text">Active: @Model.ActiveVehicles</p>
-                    <p class="card-text">In Maintenance: @Model.InMaintenanceVehicles</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-3">
-            <div class="card text-white bg-success mb-3 shadow-sm rounded-lg">
-                <div class="card-header">Trips Today</div>
-                <div class="card-body">
-                    <h4 class="card-title">Scheduled: @Model.TotalTripsScheduledToday</h4>
-                    <p class="card-text">In Progress: @Model.TripsInProgressToday</p>
-                    <p class="card-text">Completed: @Model.TripsCompletedToday</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-3">
-            <div class="card text-white bg-warning mb-3 shadow-sm rounded-lg">
-                <div class="card-header">Maintenance & Fuel</div>
-                <div class="card-body">
-                    <h4 class="card-title">Overdue Maintenance: @Model.OverdueMaintenanceCount</h4>
-                    <p class="card-text">Fuel Cost (Last 30 Days): $@Model.TotalFuelCostLast30Days.ToString("N2")</p>
-                </div>
-            </div>
-        </div>
-
-        @if (Model.UpcomingTrips != null && Model.UpcomingTrips.Any())
-        {
-            <div class="col-md-6 mb-3">
-                <div class="card shadow-sm rounded-lg">
-                    <div class="card-header bg-info text-white">Upcoming Trips</div>
-                    <div class="card-body">
-                        <ul class="list-group list-group-flush">
-                            @foreach (var trip in Model.UpcomingTrips)
-                            {
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div class="flex-grow-1">
-                                        <strong>@trip.StartLocation to @trip.EndLocation</strong>
-                                        <br />
-                                        <small>@trip.ScheduledStartTime?.ToString("MMM dd, yyyy HH:mm") - Vehicle: @trip.Vehicle?.RegistrationNumber</small>
-                                    </div>
-                                    <div>
-                                        <a asp-controller="Trips" asp-action="Details" asp-route-id="@trip.TripId" class="btn btn-sm btn-outline-info">Details</a>
-                                    </div>
-                                </li>
-                            }
-                        </ul>
-                        <a asp-controller="Trips" asp-action="Index" class="card-link mt-2 d-block text-right">View All Trips</a>
-                    </div>
-                </div>
-            </div>
-        }
-
-        @if (Model.UpcomingMaintenance != null && Model.UpcomingMaintenance.Any())
-        {
-            <div class="col-md-6 mb-3">
-                <div class="card shadow-sm rounded-lg">
-                    <div class="card-header bg-danger text-white">Upcoming/Overdue Maintenance</div>
-                    <div class="card-body">
-                        <ul class="list-group list-group-flush">
-                            @foreach (var maint in Model.UpcomingMaintenance)
-                            {
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div class="flex-grow-1">
-                                        <strong>@maint.Description</strong>
-                                        <br />
-                                        <small>@maint.ScheduledDate?.ToString("MMM dd, yyyy") - Vehicle: @maint.Vehicle?.RegistrationNumber</small>
-                                    </div>
-                                    <div>
-                                        <a asp-controller="MaintenanceRecords" asp-action="Details" asp-route-id="@maint.MaintenanceId" class="btn btn-sm btn-outline-danger">Details</a>
-                                    </div>
-                                </li>
-                            }
-                        </ul>
-                        <a asp-controller="MaintenanceRecords" asp-action="Index" class="card-link mt-2 d-block text-right">View All Maintenance</a>
-                    </div>
-                </div>
-            </div>
-        }
-    }
-
-    @* --- Driver Dashboard --- *@
-    @if (User.IsInRole("Driver"))
-    {
-        <div class="col-md-12 mb-4">
-            <h2>Your Driver Dashboard</h2>
-            <hr />
-        </div>
-
-        <div class="col-md-4 mb-3">
-            <div class="card text-white bg-primary mb-3 shadow-sm rounded-lg">
-                <div class="card-header">Your Trips Today</div>
-                <div class="card-body">
-                    <h4 class="card-title">Assigned Trips: @(Model.DriverAssignedTripsToday?.Count() ?? 0)</h4>
-                    @if (Model.DriverAssignedTripsToday != null && Model.DriverAssignedTripsToday.Any())
-                    {
-                        <ul class="list-group list-group-flush mt-3">
-                            @foreach (var trip in Model.DriverAssignedTripsToday)
-                            {
-                                <li class="list-group-item">
-                                    <strong>@trip.StartLocation to @trip.EndLocation</strong><br />
-                                    <small>Status: @trip.Status | Sched. Start: @trip.ScheduledStartTime?.ToString("HH:mm")</small>
-                                    <div>
-                                        <a asp-controller="Trips" asp-action="UpdateStatus" asp-route-id="@trip.TripId" class="btn btn-sm btn-info mt-1">Update Status</a>
-                                    </div>
-                                </li>
-                            }
-                        </ul>
-                    }
-                    else
-                    {
-                        <p class="card-text">No trips assigned for today.</p>
-                    }
-                    <a asp-controller="Trips" asp-action="Index" class="card-link mt-2 d-block text-right">View All Your Trips</a>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-3">
-            <div class="card text-white bg-success mb-3 shadow-sm rounded-lg">
-                <div class="card-header">Last Fuel Record</div>
-                <div class="card-body">
-                    @if (Model.DriverLastFuelRecord != null)
-                    {
-                        <h4 class="card-title">Date: @Model.DriverLastFuelRecord.Date?.ToString("MMM dd, yyyy")</h4>
-                        <p class="card-text">Quantity: @Model.DriverLastFuelRecord.FuelQuantity L</p>
-                        <p class="card-text">Cost: $@Model.DriverLastFuelRecord.Cost?.ToString("N2")</p>
-                        <a asp-controller="FuelRecords" asp-action="Details" asp-route-id="@Model.DriverLastFuelRecord.FuelId" class="card-link d-block text-right">View Details</a>
-                    }
-                    else
-                    {
-                        <p class="card-text">No recent fuel records.</p>
-                        <a asp-controller="FuelRecords" asp-action="Create" class="card-link d-block text-right">Add New Fuel Record</a>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-3">
-            <div class="card text-white bg-info mb-3 shadow-sm rounded-lg">
-                <div class="card-header">Next Vehicle Maintenance</div>
-                <div class="card-body">
-                    @if (Model.DriverNextMaintenanceForAssignedVehicle != null)
-                    {
-                        <h4 class="card-title">@Model.DriverNextMaintenanceForAssignedVehicle.Description</h4>
-                        <p class="card-text">Scheduled For: @Model.DriverNextMaintenanceForAssignedVehicle.ScheduledDate?.ToString("MMM dd, yyyy")</p>
-                        <p class="card-text">Vehicle: @Model.DriverNextMaintenanceForAssignedVehicle.Vehicle?.RegistrationNumber</p>
-                        <a asp-controller="MaintenanceRecords" asp-action="Details" asp-route-id="@Model.DriverNextMaintenanceForAssignedVehicle.MaintenanceId" class="card-link d-block text-right">View Details</a>
-                    }
-                    else
-                    {
-                        <p class="card-text">No upcoming maintenance for your assigned vehicles.</p>
-                    }
-                </div>
-            </div>
-        </div>
-    }
-</div>
-
-@* Privacy and Error links (keep if you want them on the dashboard) *@
-<div class="text-center mt-5">
-    <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy Policy</a>
-</div>
-
+@* Include Bootstrap Icons CDN here for self-containment in this view.
+   Ideally, this would be in your Views/Shared/_Layout.cshtml if used globally. *@
 @section Scripts {
-    @* Add any specific dashboard scripts here if needed later (e.g., for charts) *@
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+}
+
+@* --- Admin/Operator Dashboard Section --- *@
+@if (User.IsInRole("Fleet Administrator") || User.IsInRole("Fleet Operator"))
+{
+    <h2>Fleet Overview</h2>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <div class="card text-center bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-truck-flatbed me-2"></i>Total Vehicles</h5>
+                    <p class="card-text fs-2">@Model.TotalVehicles</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-center bg-info text-white">
+                @* Changed color for Total Trips card *@
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-signpost-split-fill me-2"></i>Total Trips</h5> @* Changed title and icon *@
+                    <p class="card-text fs-2">@Model.TotalTrips</p> @* Using new TotalTrips property *@
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-center bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-tools me-2"></i>In Maintenance</h5>
+                    <p class="card-text fs-2">@Model.InMaintenanceVehicles</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Removed the old second row of trip-specific cards as they are now consolidated into "Total Trips" above *@
+
+    <div class="row mt-4">
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Overdue Maintenance</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text fs-2 text-center">@Model.OverdueMaintenanceCount</p>
+                    @if (Model.OverdueMaintenanceCount > 0)
+                    {
+                        <p class="text-center"><a href="@Url.Action("Index", "MaintenanceRecords", new { statusFilter = "Overdue" })" class="btn btn-sm btn-outline-danger">View Details</a></p>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0"><i class="bi bi-fuel-pump-fill me-2"></i>Total Fuel Cost (Last 30 Days)</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text fs-2 text-center">@Model.TotalFuelCostLast30Days.ToString("C")</p> @* Format as Currency *@
+                    <p class="text-center"><a href="@Url.Action("Index", "FuelRecords", new { startDate = DateTime.Today.AddDays(-30).ToString("yyyy-MM-dd"), endDate = DateTime.Today.ToString("yyyy-MM-dd") })" class="btn btn-sm btn-outline-success">View Details</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6 mb-4">
+            <h3><i class="bi bi-calendar-event me-2"></i>Upcoming Trips</h3>
+            @if (Model.UpcomingTrips != null && Model.UpcomingTrips.Any())
+            {
+                <ul class="list-group">
+                    @foreach (var trip in Model.UpcomingTrips)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                <strong>@trip.StartLocation to @trip.EndLocation</strong> for @trip.Vehicle?.RegistrationNumber
+                                <br />
+                                <small>@trip.ScheduledStartTime?.ToString("MMM dd,yyyy HH:mm")</small>
+                            </span>
+                            <a href="@Url.Action("Details", "Trips", new { id = trip.TripId })" class="btn btn-sm btn-info text-white">View</a>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No upcoming trips scheduled in the next 7 days.</p>
+            }
+        </div>
+        <div class="col-md-6 mb-4">
+            <h3><i class="bi bi-clipboard-pulse me-2"></i>Upcoming Maintenance</h3>
+            @if (Model.UpcomingMaintenance != null && Model.UpcomingMaintenance.Any())
+            {
+                <ul class="list-group">
+                    @foreach (var maintenance in Model.UpcomingMaintenance)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                <strong>@maintenance.Description</strong> for @maintenance.Vehicle?.RegistrationNumber
+                                <br />
+                                <small>Scheduled: @maintenance.ScheduledDate?.ToString("MMM dd,yyyy") (@maintenance.Status)</small>
+                            </span>
+                            <a href="@Url.Action("Details", "MaintenanceRecords", new { id = maintenance.MaintenanceId })" class="btn btn-sm btn-info text-white">View</a>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No upcoming maintenance scheduled in the next 30 days.</p>
+            }
+        </div>
+    </div>
+}
+
+@* --- Driver Dashboard Section --- *@
+@if (User.IsInRole("Driver"))
+{
+    <h2><i class="bi bi-person-fill me-2"></i>Your Trips Today</h2>
+    @if (Model.DriverAssignedTripsToday != null && Model.DriverAssignedTripsToday.Any())
+    {
+        <ul class="list-group mb-4">
+            @foreach (var trip in Model.DriverAssignedTripsToday)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>
+                        <strong>@trip.StartLocation to @trip.EndLocation</strong> on @trip.Vehicle?.RegistrationNumber
+                        <br />
+                        <small>Status: @trip.Status | Scheduled: @trip.ScheduledStartTime?.ToString("HH:mm")</small>
+                    </span>
+                    <a href="@Url.Action("UpdateStatus", "Trips", new { id = trip.TripId })" class="btn btn-sm btn-primary">Update Status</a>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No trips assigned for today.</p>
+    }
+
+    <div class="row mt-4">
+        <div class="col-md-6 mb-4">
+            <h3><i class="bi bi-gas-pump-fill me-2"></i>Your Last Fuel Record</h3>
+            @if (Model.DriverLastFuelRecord != null)
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@Model.DriverLastFuelRecord.Date?.ToString("MMM dd,yyyy")</h5>
+                        <p class="card-text">
+                            <strong>Vehicle:</strong> @Model.DriverLastFuelRecord.Vehicle?.RegistrationNumber<br />
+                            <strong>Location:</strong> @Model.DriverLastFuelRecord.Location<br />
+                            <strong>Quantity:</strong> @Model.DriverLastFuelRecord.FuelQuantity L<br />
+                            <strong>Cost:</strong> @Model.DriverLastFuelRecord.Cost?.ToString("C")
+                        </p>
+                        <a href="@Url.Action("Details", "FuelRecords", new { id = Model.DriverLastFuelRecord.FuelId })" class="btn btn-sm btn-info text-white">View Details</a>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p>No recent fuel records found for you.</p>
+            }
+        </div>
+        <div class="col-md-6 mb-4">
+            <h3><i class="bi bi-wrench-adjustable-fill me-2"></i>Next Maintenance for Your Vehicle</h3>
+            @if (Model.DriverNextMaintenanceForAssignedVehicle != null)
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@Model.DriverNextMaintenanceForAssignedVehicle.Description</h5>
+                        <p class="card-text">
+                            <strong>Vehicle:</strong> @Model.DriverNextMaintenanceForAssignedVehicle.Vehicle?.RegistrationNumber<br />
+                            <strong>Scheduled:</strong> @Model.DriverNextMaintenanceForAssignedVehicle.ScheduledDate?.ToString("MMM dd,yyyy")<br />
+                            <strong>Type:</strong> @Model.DriverNextMaintenanceForAssignedVehicle.MaintenanceType<br />
+                            <strong>Status:</strong> @Model.DriverNextMaintenanceForAssignedVehicle.Status
+                        </p>
+                        <a href="@Url.Action("Details", "MaintenanceRecords", new { id = Model.DriverNextMaintenanceForAssignedVehicle.MaintenanceId })" class="btn btn-sm btn-info text-white">View Details</a>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p>No upcoming maintenance scheduled for your assigned vehicles.</p>
+            }
+        </div>
+    </div>
 }

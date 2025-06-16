@@ -19,8 +19,9 @@
         </div>
         <div class="col-md-2">
             <label for="StatusFilter" class="form-label">Filter by Status</label>
+            @* Use asp-items with ViewBag.StatusFilter prepared by controller for enum names/descriptions *@
             <select name="statusFilter" id="StatusFilter" class="form-select" asp-items="ViewBag.StatusFilter">
-                @* "All" is in ViewBag *@
+                @* "All" is now part of ViewBag.StatusFilter *@
             </select>
         </div>
         <div class="col-md-3">
@@ -89,7 +90,7 @@
                     @Html.DisplayFor(modelItem => item.ScheduledDate)
                 </td>
                 <td>
-                    @Html.DisplayFor(modelItem => item.Status)
+                    @Html.DisplayFor(modelItem => item.Status) @* Displays enum name or description *@
                 </td>
                 <td>
                     @Html.DisplayFor(modelItem => item.ActualCompletionDate)
@@ -107,8 +108,8 @@
                     @Html.DisplayFor(modelItem => item.MaintenanceType)
                 </td>
                 <td>
-                    <a asp-action="Edit" asp-route-id="@item.MaintenanceId">Edit</a> 
-                    <a asp-action="Details" asp-route-id="@item.MaintenanceId">Details</a> 
+                    <a asp-action="Edit" asp-route-id="@item.MaintenanceId">Edit</a> |
+                    <a asp-action="Details" asp-route-id="@item.MaintenanceId">Details</a> |
                     <a asp-action="Delete" asp-route-id="@item.MaintenanceId">Delete</a>
                 </td>
             </tr>
