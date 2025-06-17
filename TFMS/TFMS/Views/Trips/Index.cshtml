@@ -1,4 +1,6 @@
 ﻿@model IEnumerable<TFMS.Models.Trip>
+@using TFMS.Data
+@using System.Security.Claims; @* <--- ADD THIS LINE *@
 
 @{
     ViewData["Title"] = "Trips";
@@ -7,44 +9,50 @@
 <h1>Trips</h1>
 
 <p>
-    <a asp-action="Create" class="btn btn-primary">Create New Trip</a>
+    @if (User.IsInRole("Fleet Administrator"))
+    {
+        <a asp-action="Create" class="btn btn-primary">Create New Trip</a>
+    }
 </p>
 
-@* --- Search and Filter Section --- *@
-<form asp-controller="Trips" asp-action="Index" method="get" class="mb-4">
+<form asp-action="Index" method="get" class="mb-4">
     <div class="row g-3 align-items-end">
-        <div class="col-md-3">
-            <label for="SearchString" class="form-label">Search (Location/Route)</label>
-            <input type="text" name="searchString" id="SearchString" class="form-control" value="@ViewBag.CurrentSearchString" />
+        <div class="col-md-4 col-lg-3">
+            <label for="searchString" class="form-label">Search:</label>
+            <input type="text" name="searchString" class="form-control" value="@ViewBag.CurrentSearchString" placeholder="Start/End Location, Vehicle, Driver" />
         </div>
-        <div class="col-md-2">
-            <label for="StatusFilter" class="form-label">Filter by Status</label>
-            <select name="statusFilter" id="StatusFilter" class="form-select" asp-items="ViewBag.StatusFilter">
-                @* No default option needed as "All" is in ViewBag *@
-            </select>
+        <div class="col-md-4 col-lg-2">
+            <label for="statusFilter" class="form-label">Status:</label>
+            <select name="statusFilter" class="form-select" asp-items="ViewBag.StatusFilter"></select>
         </div>
-        <div class="col-md-3">
-            <label for="DriverFilter" class="form-label">Filter by Driver</label>
-            <select name="driverIdFilter" id="DriverFilter" class="form-select" asp-items="ViewBag.DriverFilter">
-                @* No default option needed as "All Drivers" is in ViewBag *@
-            </select>
+        <div class="col-md-4 col-lg-2">
+            <label for="vehicleIdFilter" class="form-label">Vehicle:</label>
+            <select name="vehicleIdFilter" class="form-select" asp-items="ViewBag.VehicleFilter"></select>
         </div>
-        <div class="col-md-2">
-            <label for="VehicleFilter" class="form-label">Filter by Vehicle</label>
-            <select name="vehicleIdFilter" id="VehicleFilter" class="form-select" asp-items="ViewBag.VehicleFilter">
-                @* No default option needed as "All Vehicles" is in ViewBag *@
-            </select>
-        </div>
-        <div class="col-md-2 d-flex justify-content-end">
-            <button type="submit" class="btn btn-outline-secondary">Apply Filters</button>
-            <a asp-action="Index" class="btn btn-outline-danger ms-2">Clear Filters</a>
+
+        @* Conditional rendering for Driver Filter: Only show if not a Driver role *@
+        @if (!User.IsInRole("Driver"))
+        {
+            <div class="col-md-4 col-lg-2">
+                <label for="driverIdFilter" class="form-label">Driver:</label>
+                <select name="driverIdFilter" class="form-select" asp-items="ViewBag.DriverFilter"></select>
+            </div>
+        }
+        else
+        {
+            @* Hidden field to ensure driverIdFilter is always sent, even if the dropdown is hidden/disabled *@
+            <input type="hidden" name="driverIdFilter" value="@ViewBag.CurrentDriverFilter" />
+        }
+
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-filter me-1"></i>Filter</button>
+            <a asp-action="Index" class="btn btn-secondary ms-2"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</a>
         </div>
     </div>
 </form>
-@* --- End Search and Filter Section --- *@
 
-<table class="table">
-    <thead>
+<table class="table table-hover table-striped shadow-sm rounded overflow-hidden">
+    <thead class="bg-primary text-white">
         <tr>
             <th>
                 @Html.DisplayNameFor(model => model.Vehicle)
@@ -62,22 +70,10 @@
                 @Html.DisplayNameFor(model => model.ScheduledStartTime)
             </th>
             <th>
-                @Html.DisplayNameFor(model => model.ScheduledEndTime)
-            </th>
-            <th>
                 @Html.DisplayNameFor(model => model.Status)
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.EstimatedDistanceKm)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.ActualStartTime)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.ActualEndTime)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.ActualDistanceKm)
             </th>
             <th></th>
         </tr>
@@ -102,39 +98,33 @@
                     @Html.DisplayFor(modelItem => item.ScheduledStartTime)
                 </td>
                 <td>
-                    @Html.DisplayFor(modelItem => item.ScheduledEndTime)
-                </td>
-                <td>
                     @Html.DisplayFor(modelItem => item.Status)
                 </td>
                 <td>
                     @Html.DisplayFor(modelItem => item.EstimatedDistanceKm)
                 </td>
                 <td>
-                    @Html.DisplayFor(modelItem => item.ActualStartTime)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.ActualEndTime)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.ActualDistanceKm)
-                </td>
-                <td>
-                    <a asp-action="Details" asp-route-id="@item.TripId">Details</a> 
-                    @if (User.IsInRole("Fleet Administrator") || User.IsInRole("Fleet Operator"))
+                    <a asp-action="Edit" asp-route-id="@item.TripId" class="btn btn-sm btn-outline-primary" title="Edit">
+                        <i class="bi bi-pencil-square"></i>
+                    </a> |
+                    <a asp-action="Details" asp-route-id="@item.TripId" class="btn btn-sm btn-outline-info" title="Details">
+                        <i class="bi bi-info-circle"></i>
+                    </a> |
+                    <a asp-action="Delete" asp-route-id="@item.TripId" class="btn btn-sm btn-outline-danger" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </a> |
+                    @if (User.IsInRole("Fleet Administrator") || User.IsInRole("Fleet Operator") || (User.IsInRole("Driver") && item.DriverId == User.FindFirst(ClaimTypes.NameIdentifier)?.Value))
                     {
-                        <a asp-action="Edit" asp-route-id="@item.TripId">Edit</a> 
-                    }
-                    @if (User.IsInRole("Fleet Administrator") || User.IsInRole("Fleet Operator") || (User.IsInRole("Driver") && item.DriverId == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value))
-                    {
-                        <a asp-action="UpdateStatus" asp-route-id="@item.TripId">Update Status</a> 
-                    }
-                    @if (User.IsInRole("Fleet Administrator"))
-                    {
-                        <a asp-action="Delete" asp-route-id="@item.TripId">Delete</a>
+                        <a asp-action="UpdateStatus" asp-route-id="@item.TripId" class="btn btn-sm btn-outline-success" title="Update Status">
+                            <i class="bi bi-arrow-repeat"></i> Status
+                        </a>
                     }
                 </td>
             </tr>
         }
     </tbody>
 </table>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"></script>
+}
