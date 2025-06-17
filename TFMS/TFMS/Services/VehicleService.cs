@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using TFMS.Data;
 using TFMS.Models;
+using System; // For DateTime.Today
 
 namespace TFMS.Services
 {
@@ -17,33 +18,14 @@ namespace TFMS.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<Vehicle>> GetAllVehiclesAsync(string? searchString = null, string? statusFilter = null, string? fuelTypeFilter = null)
+        public async Task<IEnumerable<Vehicle>> GetAllVehiclesAsync()
         {
-            var vehicles = _context.Vehicles.AsQueryable();
-
-            if (!string.IsNullOrEmpty(searchString))
-            {
-                vehicles = vehicles.Where(v => v.RegistrationNumber.Contains(searchString) ||
-                                                v.Make.Contains(searchString) ||
-                                                v.Model.Contains(searchString));
-            }
-
-            if (!string.IsNullOrEmpty(statusFilter) && statusFilter != "All")
-            {
-                vehicles = vehicles.Where(v => v.Status == statusFilter);
-            }
-
-            if (!string.IsNullOrEmpty(fuelTypeFilter) && fuelTypeFilter != "All")
-            {
-                vehicles = vehicles.Where(v => v.FuelType == fuelTypeFilter);
-            }
-
-            return await vehicles.ToListAsync();
+            return await _context.Vehicles.ToListAsync();
         }
 
         public async Task<Vehicle?> GetVehicleByIdAsync(int id)
         {
-            return await _context.Vehicles.FindAsync(id);
+            return await _context.Vehicles.FirstOrDefaultAsync(m => m.VehicleId == id);
         }
 
         public async Task AddVehicleAsync(Vehicle vehicle)
@@ -58,8 +40,11 @@ namespace TFMS.Services
             await _context.SaveChangesAsync();
         }
 
+        // Modified DeleteVehicleAsync to NOT delete if associated trips exist
         public async Task DeleteVehicleAsync(int id)
         {
+            // IMPORTANT: This method now assumes the controller will check HasAssociatedTripsAsync
+            // and only call this if no trips are associated.
             var vehicle = await _context.Vehicles.FindAsync(id);
             if (vehicle != null)
             {
@@ -73,7 +58,7 @@ namespace TFMS.Services
             return await _context.Vehicles.AnyAsync(e => e.VehicleId == id);
         }
 
-        // New methods for Dashboard implementation
+        // Dashboard related methods
         public async Task<int> GetTotalVehiclesAsync()
         {
             return await _context.Vehicles.CountAsync();
@@ -81,22 +66,26 @@ namespace TFMS.Services
 
         public async Task<int> GetAvailableVehiclesCountAsync()
         {
-            // This assumes "Active" is your status for available vehicles
-            return await _context.Vehicles.CountAsync(v => v.Status == "Active");
+            return await _context.Vehicles.CountAsync(v => v.Status == "Available");
         }
 
         public async Task<int> GetVehiclesInMaintenanceCountAsync()
         {
-            // Counts vehicles explicitly marked as "In Maintenance"
             return await _context.Vehicles.CountAsync(v => v.Status == "In Maintenance");
         }
 
         public async Task<int> GetUnavailableVehiclesCountAsync()
         {
-            // Counts vehicles that are not "Active" and not "In Maintenance"
-            // You might have other statuses like "Out of Service", "Retired" etc.
-            // Adjust logic based on your vehicle status definitions
-            return await _context.Vehicles.CountAsync(v => v.Status != "Active" && v.Status != "In Maintenance");
+            // Assuming "Unavailable" could be other statuses like "Out of Service", "Retired"
+            // For now, let's count vehicles not "Available" or "In Maintenance"
+            return await _context.Vehicles.CountAsync(v => v.Status != "Available" && v.Status != "In Maintenance");
+        }
+
+        // NEW: Implementation for HasAssociatedTripsAsync
+        public async Task<bool> HasAssociatedTripsAsync(int vehicleId)
+        {
+            // Check if any trips reference this VehicleId
+            return await _context.Trips.AnyAsync(t => t.VehicleId == vehicleId);
         }
     }
 }

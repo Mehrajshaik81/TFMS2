@@ -32,25 +32,24 @@ namespace TFMS.Models
 
         [ForeignKey("VehicleId")]
         public Vehicle? Vehicle { get; set; } // Navigation property
+        
 
-        [Required]
         [Display(Name = "Driver")]
         public string DriverId { get; set; } = string.Empty; // Foreign Key to ApplicationUser
 
         [ForeignKey("DriverId")]
         public ApplicationUser? Driver { get; set; } // Navigation property
 
-        [Required]
         [StringLength(200)]
         [Display(Name = "Start Location")]
         public string StartLocation { get; set; } = string.Empty;
 
-        [Required]
+
         [StringLength(200)]
         [Display(Name = "End Location")]
         public string EndLocation { get; set; } = string.Empty;
 
-        [Required]
+     
         [Display(Name = "Scheduled Start Time")]
         [DataType(DataType.DateTime)]
         public DateTime? ScheduledStartTime { get; set; }

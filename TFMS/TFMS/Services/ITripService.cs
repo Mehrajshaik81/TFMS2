@@ -6,9 +6,15 @@ using TFMS.Models; // Ensure correct namespace
 
 namespace TFMS.Services
 {
+    // DTO for daily fuel consumption (kept for reference from previous steps, belongs to FuelService usually)
+    // public class DailyFuelConsumptionDto
+    // {
+    //     public DateTime Date { get; set; }
+    //     public decimal Amount { get; set; }
+    // }
+
     public interface ITripService
     {
-        // Corrected signature: vehicleIdFilter is int?, driverIdFilter is string?
         Task<IEnumerable<Trip>> GetAllTripsAsync(string? searchString = null, string? statusFilter = null, int? vehicleIdFilter = null, string? driverIdFilter = null);
         Task<Trip?> GetTripByIdAsync(int id);
         Task AddTripAsync(Trip trip);
@@ -21,5 +27,8 @@ namespace TFMS.Services
         Task<int> GetUpcomingTripsCountAsync();
         Task<int> GetTripsInProgressCountAsync();
         Task<int> GetCompletedTripsCountAsync();
+
+        // NEW: Method to get trips for a specific driver
+        Task<IEnumerable<Trip>> GetTripsByDriverIdAsync(string driverId);
     }
 }

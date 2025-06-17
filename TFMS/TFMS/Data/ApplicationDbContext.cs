@@ -1,11 +1,11 @@
-﻿// Data/ApplicationDbContext.cs
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion; // ADD THIS USING
 using System.Reflection; // ADD THIS USING for Extension Methods
 using System.ComponentModel; // ADD THIS USING for DescriptionAttribute
 using TFMS.Models; // Make sure this using directive points to your Models folder
 using System; // For Enum
+using System.Linq; // For .FirstOrDefault() in ToEnumValue
 
 namespace TFMS.Data // Your correct namespace
 {
@@ -72,34 +72,33 @@ namespace TFMS.Data // Your correct namespace
     // --- Extension Methods for Enum Description and Parsing (MUST be outside ApplicationDbContext class, but in the same namespace) ---
     public static class EnumExtensions
     {
-        // Gets the Description attribute value of an enum member
-        public static string GetDescription<TEnum>(this TEnum value)
-            where TEnum : Enum
-        {
-            var fieldInfo = value.GetType().GetField(value.ToString());
-            if (fieldInfo == null) return value.ToString(); // Fallback if fieldInfo is null (shouldn't happen for enum members)
+        // Extension method to get the Description attribute value of an enum
+       
 
-            var attribute = (DescriptionAttribute?)Attribute.GetCustomAttribute(fieldInfo, typeof(DescriptionAttribute));
-            return attribute?.Description ?? value.ToString(); // Return description or ToString() if no attribute
-        }
-
-        // Converts a string to an enum value, trying to match Description attribute first, then enum name
-        public static TEnum ToEnumValue<TEnum>(this string str)
-            where TEnum : Enum
+        // Extension method to convert a string back to an enum value, using Description attribute or name
+        public static TEnum ToEnumValue<TEnum>(this string stringValue) where TEnum : Enum
         {
+            // Try to match by DescriptionAttribute first
             foreach (var field in typeof(TEnum).GetFields())
             {
                 if (Attribute.GetCustomAttribute(field, typeof(DescriptionAttribute)) is DescriptionAttribute attribute)
                 {
-                    if (attribute.Description.Equals(str, StringComparison.OrdinalIgnoreCase))
-                        return (TEnum)field.GetValue(null)!; // Use ! for null-forgiving operator as we know it's not null here
+                    if (attribute.Description.Equals(stringValue, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return (TEnum)field.GetValue(null);
+                    }
                 }
-
-                if (field.Name.Equals(str, StringComparison.OrdinalIgnoreCase))
-                    return (TEnum)field.GetValue(null)!; // Use ! for null-forgiving operator
             }
-            // If no match, try parsing directly as a fallback (will throw if invalid string)
-            return (TEnum)Enum.Parse(typeof(TEnum), str, true);
+
+            // If no match by Description, try to parse by name (case-insensitive)
+            if (Enum.TryParse(typeof(TEnum), stringValue, true, out var enumResult))
+            {
+                return (TEnum)enumResult;
+            }
+
+            // Fallback: If parsing fails, you might want to throw an exception or return a default value.
+            // For now, throwing an ArgumentException is a reasonable default.
+            throw new ArgumentException($"'{stringValue}' is not a valid value for enum {typeof(TEnum).Name}.");
         }
     }
 }

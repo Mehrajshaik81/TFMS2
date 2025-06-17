@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using TFMS.Data;
-using TFMS.Models;
+using TFMS.Data; // Ensure correct namespace
+using TFMS.Models; // Ensure correct namespace
 using System; // For DateTime
 
 namespace TFMS.Services
@@ -18,7 +18,6 @@ namespace TFMS.Services
             _context = context;
         }
 
-        // Corrected signature: DriverId is string, VehicleId is int?
         public async Task<IEnumerable<Trip>> GetAllTripsAsync(string? searchString = null, string? statusFilter = null, int? vehicleIdFilter = null, string? driverIdFilter = null)
         {
             var trips = _context.Trips
@@ -44,10 +43,8 @@ namespace TFMS.Services
                 trips = trips.Where(t => t.VehicleId == vehicleIdFilter.Value);
             }
 
-            // Fix: DriverId in Trip model is string, so directly compare driverIdFilter string
-            if (!string.IsNullOrEmpty(driverIdFilter) && driverIdFilter != "0") // Assuming "0" means all drivers in UI
+            if (!string.IsNullOrEmpty(driverIdFilter) && driverIdFilter != "0")
             {
-                // Directly compare the string IDs
                 trips = trips.Where(t => t.DriverId == driverIdFilter);
             }
 
@@ -89,7 +86,6 @@ namespace TFMS.Services
             return await _context.Trips.AnyAsync(e => e.TripId == id);
         }
 
-        // New methods for Dashboard implementation
         public async Task<int> GetTotalTripsAsync()
         {
             return await _context.Trips.CountAsync();
@@ -109,6 +105,17 @@ namespace TFMS.Services
         public async Task<int> GetCompletedTripsCountAsync()
         {
             return await _context.Trips.CountAsync(t => t.Status == "Completed");
+        }
+
+        // NEW: Implementation for GetTripsByDriverIdAsync
+        public async Task<IEnumerable<Trip>> GetTripsByDriverIdAsync(string driverId)
+        {
+            return await _context.Trips
+                                 .Include(t => t.Vehicle)
+                                 .Include(t => t.Driver)
+                                 .Where(t => t.DriverId == driverId)
+                                 .OrderByDescending(t => t.ScheduledStartTime) // Order by latest trips first
+                                 .ToListAsync();
         }
     }
 }

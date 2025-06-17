@@ -1,48 +1,33 @@
 ﻿// Controllers/VehiclesController.cs
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering; // For SelectList
 using Microsoft.EntityFrameworkCore;
+using TFMS.Data; // Ensure ApplicationDbContext is here
 using TFMS.Models;
 using TFMS.Services;
-using System.Linq; // For Distinct()
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging; // For _logger
 
 namespace TFMS.Controllers
 {
-    [Authorize(Roles = "Fleet Administrator,Fleet Operator")]
+    [Authorize(Roles = "Fleet Administrator")] // Only administrators can manage vehicles
     public class VehiclesController : Controller
     {
+        private readonly ILogger<VehiclesController> _logger; // Declare logger
         private readonly IVehicleService _vehicleService;
 
-        public VehiclesController(IVehicleService vehicleService)
+        // Constructor injection
+        public VehiclesController(ILogger<VehiclesController> logger, IVehicleService vehicleService) // Inject logger
         {
+            _logger = logger; // Assign logger
             _vehicleService = vehicleService;
         }
 
         // GET: Vehicles
-        public async Task<IActionResult> Index(string? searchString, string? statusFilter, string? fuelTypeFilter)
+        public async Task<IActionResult> Index()
         {
-            // --- ADD THESE LINES HERE ---
-            ViewBag.CurrentSearchString = searchString;
-            ViewBag.CurrentStatusFilter = statusFilter;
-            ViewBag.CurrentFuelTypeFilter = fuelTypeFilter;
-            // ---------------------------
-
-            // Get all unique statuses and fuel types for filter dropdowns
-            // We fetch all vehicles *first* to ensure the dropdowns contain all possible options
-            var allVehiclesForFilters = await _vehicleService.GetAllVehiclesAsync();
-            ViewBag.StatusFilter = new SelectList(
-                allVehiclesForFilters.Select(v => v.Status).Distinct().Prepend("All").ToList(), // Add "All" option
-                statusFilter // Select current filter value
-            );
-            ViewBag.FuelTypeFilter = new SelectList(
-                allVehiclesForFilters.Select(v => v.FuelType).Distinct().Prepend("All").ToList(), // Add "All" option
-                fuelTypeFilter // Select current filter value
-            );
-
-            // Now get the vehicles based on the applied filters
-            var vehicles = await _vehicleService.GetAllVehiclesAsync(searchString, statusFilter, fuelTypeFilter);
-            return View(vehicles);
+            return View(await _vehicleService.GetAllVehiclesAsync());
         }
 
         // GET: Vehicles/Details/5
@@ -63,7 +48,6 @@ namespace TFMS.Controllers
         }
 
         // GET: Vehicles/Create
-        [Authorize(Roles = "Fleet Administrator")]
         public IActionResult Create()
         {
             return View();
@@ -72,7 +56,6 @@ namespace TFMS.Controllers
         // POST: Vehicles/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Create([Bind("VehicleId,RegistrationNumber,Capacity,Status,LastServicedDate,Make,Model,ManufacturingYear,FuelType,CurrentOdometerKm")] Vehicle vehicle)
         {
             if (ModelState.IsValid)
@@ -84,7 +67,6 @@ namespace TFMS.Controllers
         }
 
         // GET: Vehicles/Edit/5
-        [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -103,7 +85,6 @@ namespace TFMS.Controllers
         // POST: Vehicles/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Edit(int id, [Bind("VehicleId,RegistrationNumber,Capacity,Status,LastServicedDate,Make,Model,ManufacturingYear,FuelType,CurrentOdometerKm")] Vehicle vehicle)
         {
             if (id != vehicle.VehicleId)
@@ -134,7 +115,6 @@ namespace TFMS.Controllers
         }
 
         // GET: Vehicles/Delete/5
-        [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
@@ -148,16 +128,45 @@ namespace TFMS.Controllers
                 return NotFound();
             }
 
+            // Check if the vehicle has associated trips before showing the delete confirmation
+            var hasTrips = await _vehicleService.HasAssociatedTripsAsync(id.Value);
+            if (hasTrips)
+            {
+                // Add a message to ViewBag to display in the view
+                ViewBag.DeleteError = "This vehicle cannot be deleted because it has associated trips. Please delete or reassign its trips first.";
+                _logger.LogWarning("Attempted to delete vehicle {VehicleId} with associated trips.", id.Value);
+            }
+
             return View(vehicle);
         }
 
         // POST: Vehicles/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Fleet Administrator")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            await _vehicleService.DeleteVehicleAsync(id);
+            // Re-check for associated trips just before deletion to prevent database error
+            var hasTrips = await _vehicleService.HasAssociatedTripsAsync(id);
+            if (hasTrips)
+            {
+                // Redirect back to Delete GET action with error message
+                TempData["DeleteError"] = "This vehicle cannot be deleted because it has associated trips. Please delete or reassign its trips first.";
+                _logger.LogWarning("Prevented deletion of vehicle {VehicleId} due to associated trips.", id);
+                return RedirectToAction(nameof(Delete), new { id = id });
+            }
+
+            try
+            {
+                await _vehicleService.DeleteVehicleAsync(id);
+                _logger.LogInformation("Vehicle {VehicleId} deleted successfully.", id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting vehicle {VehicleId}.", id);
+                // Optionally add a more general error message if other issues occur
+                TempData["DeleteError"] = "An error occurred while trying to delete the vehicle.";
+            }
+
             return RedirectToAction(nameof(Index));
         }
     }
