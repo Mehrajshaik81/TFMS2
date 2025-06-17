@@ -1,11 +1,26 @@
 ﻿// Models/Trip.cs
 using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using TFMS.Models; // Ensure this is your correct namespace
+using System.ComponentModel.DataAnnotations.Schema; // ADD THIS USING DIRECTIVE if not present
+using TFMS.Data; // For EnumExtensions (assuming it's here)
 
-namespace TFMS.Models // Your correct namespace
+namespace TFMS.Models
 {
+    // Define TripStatus Enum (assuming this is already correct from previous steps)
+    public enum TripStatus
+    {
+        [Display(Name = "Pending")]
+        Pending,
+        [Display(Name = "In Progress")]
+        InProgress,
+        [Display(Name = "Completed")]
+        Completed,
+        [Display(Name = "Delayed")]
+        Delayed,
+        [Display(Name = "Canceled")]
+        Canceled
+    }
+
     public class Trip
     {
         [Key]
@@ -13,12 +28,15 @@ namespace TFMS.Models // Your correct namespace
 
         [Required]
         [Display(Name = "Vehicle")]
-        public int VehicleId { get; set; }
+        public int VehicleId { get; set; } // Foreign Key
+
         [ForeignKey("VehicleId")]
         public Vehicle? Vehicle { get; set; } // Navigation property
 
+        [Required]
         [Display(Name = "Driver")]
-        public string? DriverId { get; set; } // Foreign key to ApplicationUser (string because IdentityUser.Id is string)
+        public string DriverId { get; set; } = string.Empty; // Foreign Key to ApplicationUser
+
         [ForeignKey("DriverId")]
         public ApplicationUser? Driver { get; set; } // Navigation property
 
@@ -33,37 +51,36 @@ namespace TFMS.Models // Your correct namespace
         public string EndLocation { get; set; } = string.Empty;
 
         [Required]
-        [DataType(DataType.DateTime)]
         [Display(Name = "Scheduled Start Time")]
-        public DateTime? ScheduledStartTime { get; set; } // <<< ENSURE THIS IS NULLABLE
-
-        [Required]
         [DataType(DataType.DateTime)]
+        public DateTime? ScheduledStartTime { get; set; }
+
         [Display(Name = "Scheduled End Time")]
-        public DateTime? ScheduledEndTime { get; set; } // <<< ENSURE THIS IS NULLABLE
+        [DataType(DataType.DateTime)]
+        public DateTime? ScheduledEndTime { get; set; }
 
         [Required]
         [StringLength(50)]
-        public string Status { get; set; } = "Pending"; // e.g., Pending, In Progress, Completed, Delayed, Canceled
+        public string Status { get; set; } = TripStatus.Pending.ToString(); // Default status to "Pending"
 
-        [DataType(DataType.DateTime)]
         [Display(Name = "Actual Start Time")]
-        public DateTime? ActualStartTime { get; set; } // <<< ENSURE THIS IS NULLABLE
-
         [DataType(DataType.DateTime)]
+        public DateTime? ActualStartTime { get; set; }
+
         [Display(Name = "Actual End Time")]
-        public DateTime? ActualEndTime { get; set; } // <<< ENSURE THIS IS NULLABLE
+        [DataType(DataType.DateTime)]
+        public DateTime? ActualEndTime { get; set; }
 
         [Display(Name = "Estimated Distance (km)")]
-        public double? EstimatedDistanceKm { get; set; } // <<< ENSURE THIS IS NULLABLE
+        [Column(TypeName = "decimal(18, 2)")] // <<< ADD THIS LINE
+        public decimal? EstimatedDistanceKm { get; set; }
 
         [Display(Name = "Actual Distance (km)")]
-        public double? ActualDistanceKm { get; set; } // <<< ENSURE THIS IS NULLABLE
+        [Column(TypeName = "decimal(18, 2)")] // <<< ADD THIS LINE
+        public decimal? ActualDistanceKm { get; set; }
 
         [StringLength(500)]
         [Display(Name = "Route Details")]
         public string? RouteDetails { get; set; }
-
-
     }
 }

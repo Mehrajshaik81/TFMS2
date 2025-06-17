@@ -3,12 +3,20 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using TFMS.Data; // Ensure correct namespace, includes EnumExtensions
-using TFMS.Models; // Ensure correct namespace
+using TFMS.Data;
+using TFMS.Models;
 using System; // For Enum
 
 namespace TFMS.Services
 {
+    // MaintenanceCostDto is defined in IMaintenanceService.cs now.
+    // If you prefer it here, uncomment the class definition.
+    // public class MaintenanceCostDto
+    // {
+    //     public string? MaintenanceType { get; set; }
+    //     public decimal TotalCost { get; set; }
+    // }
+
     public class MaintenanceService : IMaintenanceService
     {
         private readonly ApplicationDbContext _context;
@@ -26,39 +34,30 @@ namespace TFMS.Services
                                                 .Include(m => m.Vehicle)
                                                 .AsQueryable();
 
-            // Apply search string filter
             if (!string.IsNullOrEmpty(searchString))
             {
                 maintenanceRecords = maintenanceRecords.Where(m => m.Description.Contains(searchString) ||
                                                                  (m.PerformedBy != null && m.PerformedBy.Contains(searchString)));
             }
 
-            // Apply status filter (now relies on the string from UI matching enum description/name)
             if (!string.IsNullOrEmpty(statusFilter) && statusFilter != "All")
             {
-                // Use the ToEnumValue extension method for robust parsing from string filter
                 try
                 {
-                    var parsedStatus = statusFilter.ToEnumValue<MaintenanceStatus>(); // Use the new extension method
+                    var parsedStatus = statusFilter.ToEnumValue<MaintenanceStatus>();
                     maintenanceRecords = maintenanceRecords.Where(m => m.Status == parsedStatus);
                 }
                 catch (ArgumentException)
                 {
-                    // Handle case where statusFilter string doesn't match any enum value/description
-                    // e.g., log error or return empty set, or ignore filter
                     Console.WriteLine($"Warning: Invalid status filter '{statusFilter}' provided for Maintenance Records.");
-                    // You might choose to return an empty list or keep the unfiltered query
-                    // For now, we'll let it proceed without this filter.
                 }
             }
 
-            // Apply vehicle filter by VehicleId
             if (vehicleIdFilter.HasValue && vehicleIdFilter.Value > 0)
             {
                 maintenanceRecords = maintenanceRecords.Where(m => m.VehicleId == vehicleIdFilter.Value);
             }
 
-            // Apply maintenance type filter
             if (!string.IsNullOrEmpty(maintenanceTypeFilter) && maintenanceTypeFilter != "All")
             {
                 maintenanceRecords = maintenanceRecords.Where(m => m.MaintenanceType == maintenanceTypeFilter);
@@ -109,7 +108,6 @@ namespace TFMS.Services
             var vehicle = await _vehicleService.GetVehicleByIdAsync(vehicleId);
             if (vehicle == null) return;
 
-            // Check for any outstanding maintenance (Scheduled, InProgress, Overdue, Delayed)
             var outstandingMaintenance = await _context.MaintenanceRecords
                 .Where(m => m.VehicleId == vehicleId &&
                             (m.Status == MaintenanceStatus.Scheduled ||
@@ -128,6 +126,31 @@ namespace TFMS.Services
             }
 
             await _vehicleService.UpdateVehicleAsync(vehicle);
+        }
+
+        // New methods for Dashboard implementation
+        public async Task<int> GetPendingMaintenanceCountAsync()
+        {
+            return await _context.MaintenanceRecords.CountAsync(m => m.Status == MaintenanceStatus.Scheduled || m.Status == MaintenanceStatus.InProgress || m.Status == MaintenanceStatus.Delayed);
+        }
+
+        public async Task<int> GetOverdueMaintenanceCountAsync()
+        {
+            return await _context.MaintenanceRecords.CountAsync(m => m.Status == MaintenanceStatus.Overdue);
+        }
+
+        public async Task<List<MaintenanceCostDto>> GetMaintenanceCostByTypeAsync()
+        {
+            return await _context.MaintenanceRecords
+                .Where(m => m.Cost.HasValue && m.MaintenanceType != null)
+                .GroupBy(m => m.MaintenanceType!) // Use null-forgiving operator after null check
+                .Select(g => new MaintenanceCostDto
+                {
+                    MaintenanceType = g.Key,
+                    TotalCost = g.Sum(m => m.Cost.GetValueOrDefault())
+                })
+                .OrderByDescending(x => x.TotalCost)
+                .ToListAsync();
         }
     }
 }

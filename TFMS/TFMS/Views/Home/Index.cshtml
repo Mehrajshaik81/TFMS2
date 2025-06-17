@@ -1,199 +1,380 @@
-﻿@model TFMS.Models.DashboardViewModel
-
+﻿@using TFMS.Data @* Needed for GetDescription() on enums if using them for status display *@
 @{
     ViewData["Title"] = "Dashboard";
 }
 
-<h1>Welcome to Your TFMS Dashboard!</h1>
-<hr />
+<h1 class="mb-4 display-4 fw-bold text-primary">Fleet Dashboard</h1>
 
-@* Include Bootstrap Icons CDN here for self-containment in this view.
-   Ideally, this would be in your Views/Shared/_Layout.cshtml if used globally. *@
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 mb-5">
+    <div class="col">
+        <div class="card h-100 shadow-sm dashboard-card">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="bi bi-truck-flatbed text-primary fs-3 me-3"></i>
+                    <h5 class="card-title fw-bold text-dark mb-0">Total Vehicles</h5>
+                </div>
+                <p class="card-text display-4 fw-bolder text-center text-primary">@ViewBag.TotalVehicles</p>
+                <div class="d-flex justify-content-around text-center mt-3 small">
+                    <div>
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>Available<br />
+                        <span class="fw-bold">@ViewBag.AvailableVehicles</span>
+                    </div>
+                    <div>
+                        <i class="bi bi-tools text-warning me-1"></i>In Maint.<br />
+                        <span class="fw-bold">@ViewBag.VehiclesInMaintenance</span>
+                    </div>
+                    <div>
+                        <i class="bi bi-x-circle-fill text-danger me-1"></i>Unavailable<br />
+                        <span class="fw-bold">@ViewBag.UnavailableVehicles</span>
+                    </div>
+                </div>
+            </div>
+            <a asp-controller="Vehicles" asp-action="Index" class="card-footer text-center text-primary fw-bold text-decoration-none py-2">
+                View All Vehicles <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm dashboard-card">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="bi bi-geo-alt-fill text-success fs-3 me-3"></i>
+                    <h5 class="card-title fw-bold text-dark mb-0">Total Trips</h5>
+                </div>
+                <p class="card-text display-4 fw-bolder text-center text-success">@ViewBag.TotalTrips</p>
+                <div class="d-flex justify-content-around text-center mt-3 small">
+                    <div>
+                        <i class="bi bi-arrow-up-right-square-fill text-info me-1"></i>Upcoming<br />
+                        <span class="fw-bold">@ViewBag.UpcomingTrips</span>
+                    </div>
+                    <div>
+                        <i class="bi bi-truck text-warning me-1"></i>In Progress<br />
+                        <span class="fw-bold">@ViewBag.TripsInProgress</span>
+                    </div>
+                    <div>
+                        <i class="bi bi-check-square-fill text-success me-1"></i>Completed<br />
+                        <span class="fw-bold">@ViewBag.CompletedTrips</span>
+                    </div>
+                </div>
+            </div>
+            <a asp-controller="Trips" asp-action="Index" class="card-footer text-center text-success fw-bold text-decoration-none py-2">
+                View All Trips <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm dashboard-card">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="bi bi-tools text-warning fs-3 me-3"></i>
+                    <h5 class="card-title fw-bold text-dark mb-0">Maintenance Status</h5>
+                </div>
+                <p class="card-text display-4 fw-bolder text-center text-warning">@ViewBag.PendingMaintenance</p>
+                <p class="text-center text-muted mt-2 mb-0">Pending Tasks</p>
+                <div class="text-center mt-3 small">
+                    <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>Overdue Tasks<br />
+                    <span class="fw-bold text-danger">@ViewBag.OverdueMaintenance</span>
+                </div>
+            </div>
+            <a asp-controller="MaintenanceRecords" asp-action="Index" class="card-footer text-center text-warning fw-bold text-decoration-none py-2">
+                View Maintenance Records <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm dashboard-card">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="bi bi-fuel-pump-fill text-info fs-3 me-3"></i>
+                    <h5 class="card-title fw-bold text-dark mb-0">Fuel Statistics</h5>
+                </div>
+                <p class="card-text display-4 fw-bolder text-center text-info">
+                    @* Assuming you have a ViewBag.TotalFuelCostLast30Days from FuelService *@
+                    @if (ViewBag.TotalFuelCostLast30Days != null)
+                    {
+                        <span>@ViewBag.TotalFuelCostLast30Days.ToString("C0")</span> @* Format as Currency *@
+                    }
+                    else
+                    {
+                        <span>N/A</span>
+                    }
+                </p>
+                <p class="text-center text-muted mt-2 mb-0">Total Fuel Cost (Last 30 Days)</p>
+                <div class="text-center mt-3 small">
+                    <span><i class="bi bi-bar-chart-line-fill text-secondary me-1"></i>See Fuel Analytics</span>
+                </div>
+            </div>
+            <a asp-controller="FuelRecords" asp-action="Index" class="card-footer text-center text-info fw-bold text-decoration-none py-2">
+                View Fuel Records <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<h2 class="mb-4 display-5 fw-bold text-secondary">Analytics Overview</h2>
+
+<div class="row g-4 mb-5">
+    <div class="col-lg-6">
+        <div class="card h-100 shadow-sm dashboard-card">
+            <div class="card-header bg-white fw-bold py-3">
+                <i class="bi bi-pie-chart-fill me-2 text-primary"></i>Vehicle Status Distribution
+            </div>
+            <div class="card-body">
+                <canvas id="vehicleStatusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100 shadow-sm dashboard-card">
+            <div class="card-header bg-white fw-bold py-3">
+                <i class="bi bi-bar-chart-fill me-2 text-warning"></i>Maintenance Cost by Type
+            </div>
+            <div class="card-body">
+                <canvas id="maintenanceCostChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100 shadow-sm dashboard-card">
+            <div class="card-header bg-white fw-bold py-3">
+                <i class="bi bi-graph-up-arrow me-2 text-info"></i>Last 7 Days Fuel Consumption (Liters)
+            </div>
+            <div class="card-body">
+                <canvas id="fuelConsumptionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100 shadow-sm dashboard-card">
+            <div class="card-header bg-white fw-bold py-3">
+                <i class="bi bi-bar-chart-steps me-2 text-success"></i>Trip Status Breakdown
+            </div>
+            <div class="card-body">
+                <canvas id="tripStatusChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Vehicle Status Chart (Donut Chart)
+            const vehicleStatusCtx = document.getElementById('vehicleStatusChart')?.getContext('2d');
+            if (vehicleStatusCtx) {
+                new Chart(vehicleStatusCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: @Html.Raw(Json.Serialize(ViewBag.VehicleStatusLabels)),
+                        datasets: [{
+                            data: @Html.Raw(Json.Serialize(ViewBag.VehicleStatusData)),
+                            backgroundColor: [
+                                '#007bff', // Primary for Active
+                                '#ffc107', // Warning for In Maintenance
+                                '#dc3545', // Danger for Unavailable
+                                '#6c757d'  // Secondary/Other
+                            ],
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                align: 'start'
+                            },
+                            title: {
+                                display: false,
+                                text: 'Vehicle Status Distribution'
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Maintenance Cost Breakdown Chart (Bar Chart)
+            const maintenanceCostCtx = document.getElementById('maintenanceCostChart')?.getContext('2d');
+            if (maintenanceCostCtx) {
+                new Chart(maintenanceCostCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: @Html.Raw(Json.Serialize(ViewBag.MaintenanceTypeLabels)),
+                        datasets: [{
+                            label: 'Total Cost (₹)',
+                            data: @Html.Raw(Json.Serialize(ViewBag.MaintenanceCostData)),
+                            backgroundColor: 'rgba(255, 193, 7, 0.7)', // Warning color
+                            borderColor: 'rgba(255, 193, 7, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: false,
+                                text: 'Maintenance Cost by Type'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Cost (₹)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Fuel Consumption Chart (Line Chart) - Requires FuelService update
+            const fuelConsumptionCtx = document.getElementById('fuelConsumptionChart')?.getContext('2d');
+            if (fuelConsumptionCtx) {
+                new Chart(fuelConsumptionCtx, {
+                    type: 'line',
+                    data: {
+                        labels: @Html.Raw(Json.Serialize(ViewBag.FuelConsumptionDates)),
+                        datasets: [{
+                            label: 'Fuel Consumed (Liters)',
+                            data: @Html.Raw(Json.Serialize(ViewBag.FuelConsumptionAmounts)),
+                            borderColor: 'rgba(23, 162, 184, 1)', // Info color
+                            backgroundColor: 'rgba(23, 162, 184, 0.2)',
+                            tension: 0.3,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: false,
+                                text: 'Last 7 Days Fuel Consumption'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Liters'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Trip Status Breakdown Chart
+            const tripStatusCtx = document.getElementById('tripStatusChart')?.getContext('2d');
+            if (tripStatusCtx) {
+                new Chart(tripStatusCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: @Html.Raw(Json.Serialize(ViewBag.TripStatusLabels ?? new List<string>())),
+                        datasets: [{
+                            label: 'Number of Trips',
+                            data: @Html.Raw(Json.Serialize(ViewBag.TripStatusData ?? new List<int>())),
+                            backgroundColor: [
+                                '#0d6efd', // Primary
+                                '#198754', // Success
+                                '#ffc107', // Warning
+                                '#dc3545', // Danger
+                                '#6c757d'  // Secondary
+                            ],
+                            borderColor: [
+                                '#0d6efd',
+                                '#198754',
+                                '#ffc107',
+                                '#dc3545',
+                                '#6c757d'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: false,
+                                text: 'Trip Status Breakdown'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Count'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
 }
 
-@* --- Admin/Operator Dashboard Section --- *@
-@if (User.IsInRole("Fleet Administrator") || User.IsInRole("Fleet Operator"))
-{
-    <h2>Fleet Overview</h2>
-    <div class="row">
-        <div class="col-md-4 mb-3">
-            <div class="card text-center bg-primary text-white">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-truck-flatbed me-2"></i>Total Vehicles</h5>
-                    <p class="card-text fs-2">@Model.TotalVehicles</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card text-center bg-info text-white">
-                @* Changed color for Total Trips card *@
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-signpost-split-fill me-2"></i>Total Trips</h5> @* Changed title and icon *@
-                    <p class="card-text fs-2">@Model.TotalTrips</p> @* Using new TotalTrips property *@
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card text-center bg-warning text-dark">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-tools me-2"></i>In Maintenance</h5>
-                    <p class="card-text fs-2">@Model.InMaintenanceVehicles</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    @* Removed the old second row of trip-specific cards as they are now consolidated into "Total Trips" above *@
-
-    <div class="row mt-4">
-        <div class="col-md-6 mb-3">
-            <div class="card">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Overdue Maintenance</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text fs-2 text-center">@Model.OverdueMaintenanceCount</p>
-                    @if (Model.OverdueMaintenanceCount > 0)
-                    {
-                        <p class="text-center"><a href="@Url.Action("Index", "MaintenanceRecords", new { statusFilter = "Overdue" })" class="btn btn-sm btn-outline-danger">View Details</a></p>
-                    }
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-3">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-fuel-pump-fill me-2"></i>Total Fuel Cost (Last 30 Days)</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text fs-2 text-center">@Model.TotalFuelCostLast30Days.ToString("C")</p> @* Format as Currency *@
-                    <p class="text-center"><a href="@Url.Action("Index", "FuelRecords", new { startDate = DateTime.Today.AddDays(-30).ToString("yyyy-MM-dd"), endDate = DateTime.Today.ToString("yyyy-MM-dd") })" class="btn btn-sm btn-outline-success">View Details</a></p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mt-4">
-        <div class="col-md-6 mb-4">
-            <h3><i class="bi bi-calendar-event me-2"></i>Upcoming Trips</h3>
-            @if (Model.UpcomingTrips != null && Model.UpcomingTrips.Any())
-            {
-                <ul class="list-group">
-                    @foreach (var trip in Model.UpcomingTrips)
-                    {
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>
-                                <strong>@trip.StartLocation to @trip.EndLocation</strong> for @trip.Vehicle?.RegistrationNumber
-                                <br />
-                                <small>@trip.ScheduledStartTime?.ToString("MMM dd,yyyy HH:mm")</small>
-                            </span>
-                            <a href="@Url.Action("Details", "Trips", new { id = trip.TripId })" class="btn btn-sm btn-info text-white">View</a>
-                        </li>
-                    }
-                </ul>
-            }
-            else
-            {
-                <p>No upcoming trips scheduled in the next 7 days.</p>
-            }
-        </div>
-        <div class="col-md-6 mb-4">
-            <h3><i class="bi bi-clipboard-pulse me-2"></i>Upcoming Maintenance</h3>
-            @if (Model.UpcomingMaintenance != null && Model.UpcomingMaintenance.Any())
-            {
-                <ul class="list-group">
-                    @foreach (var maintenance in Model.UpcomingMaintenance)
-                    {
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>
-                                <strong>@maintenance.Description</strong> for @maintenance.Vehicle?.RegistrationNumber
-                                <br />
-                                <small>Scheduled: @maintenance.ScheduledDate?.ToString("MMM dd,yyyy") (@maintenance.Status)</small>
-                            </span>
-                            <a href="@Url.Action("Details", "MaintenanceRecords", new { id = maintenance.MaintenanceId })" class="btn btn-sm btn-info text-white">View</a>
-                        </li>
-                    }
-                </ul>
-            }
-            else
-            {
-                <p>No upcoming maintenance scheduled in the next 30 days.</p>
-            }
-        </div>
-    </div>
-}
-
-@* --- Driver Dashboard Section --- *@
-@if (User.IsInRole("Driver"))
-{
-    <h2><i class="bi bi-person-fill me-2"></i>Your Trips Today</h2>
-    @if (Model.DriverAssignedTripsToday != null && Model.DriverAssignedTripsToday.Any())
-    {
-        <ul class="list-group mb-4">
-            @foreach (var trip in Model.DriverAssignedTripsToday)
-            {
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>
-                        <strong>@trip.StartLocation to @trip.EndLocation</strong> on @trip.Vehicle?.RegistrationNumber
-                        <br />
-                        <small>Status: @trip.Status | Scheduled: @trip.ScheduledStartTime?.ToString("HH:mm")</small>
-                    </span>
-                    <a href="@Url.Action("UpdateStatus", "Trips", new { id = trip.TripId })" class="btn btn-sm btn-primary">Update Status</a>
-                </li>
-            }
-        </ul>
+<style>
+    /* Custom styles for dashboard cards */
+    .dashboard-card {
+        border-radius: 12px;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
-    else
-    {
-        <p>No trips assigned for today.</p>
-    }
 
-    <div class="row mt-4">
-        <div class="col-md-6 mb-4">
-            <h3><i class="bi bi-gas-pump-fill me-2"></i>Your Last Fuel Record</h3>
-            @if (Model.DriverLastFuelRecord != null)
-            {
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">@Model.DriverLastFuelRecord.Date?.ToString("MMM dd,yyyy")</h5>
-                        <p class="card-text">
-                            <strong>Vehicle:</strong> @Model.DriverLastFuelRecord.Vehicle?.RegistrationNumber<br />
-                            <strong>Location:</strong> @Model.DriverLastFuelRecord.Location<br />
-                            <strong>Quantity:</strong> @Model.DriverLastFuelRecord.FuelQuantity L<br />
-                            <strong>Cost:</strong> @Model.DriverLastFuelRecord.Cost?.ToString("C")
-                        </p>
-                        <a href="@Url.Action("Details", "FuelRecords", new { id = Model.DriverLastFuelRecord.FuelId })" class="btn btn-sm btn-info text-white">View Details</a>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <p>No recent fuel records found for you.</p>
-            }
-        </div>
-        <div class="col-md-6 mb-4">
-            <h3><i class="bi bi-wrench-adjustable-fill me-2"></i>Next Maintenance for Your Vehicle</h3>
-            @if (Model.DriverNextMaintenanceForAssignedVehicle != null)
-            {
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">@Model.DriverNextMaintenanceForAssignedVehicle.Description</h5>
-                        <p class="card-text">
-                            <strong>Vehicle:</strong> @Model.DriverNextMaintenanceForAssignedVehicle.Vehicle?.RegistrationNumber<br />
-                            <strong>Scheduled:</strong> @Model.DriverNextMaintenanceForAssignedVehicle.ScheduledDate?.ToString("MMM dd,yyyy")<br />
-                            <strong>Type:</strong> @Model.DriverNextMaintenanceForAssignedVehicle.MaintenanceType<br />
-                            <strong>Status:</strong> @Model.DriverNextMaintenanceForAssignedVehicle.Status
-                        </p>
-                        <a href="@Url.Action("Details", "MaintenanceRecords", new { id = Model.DriverNextMaintenanceForAssignedVehicle.MaintenanceId })" class="btn btn-sm btn-info text-white">View Details</a>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <p>No upcoming maintenance scheduled for your assigned vehicles.</p>
-            }
-        </div>
-    </div>
-}
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+        }
+
+        .dashboard-card .card-footer {
+            background-color: rgba(0, 0, 0, 0.03);
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+
+        .dashboard-card .card-title {
+            font-size: 1.25rem;
+        }
+
+        .dashboard-card .card-text.display-4 {
+            font-size: 3.5rem;
+            line-height: 1.2;
+        }
+
+    /* Ensure icons from Bootstrap Icons are loaded */
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" >
+</style>

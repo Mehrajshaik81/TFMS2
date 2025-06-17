@@ -1,19 +1,24 @@
-﻿// Models/EnumExtensions.cs (or Extensions/EnumExtensions.cs)
-using System.ComponentModel;
+﻿// TFMS.Data/EnumExtensions.cs
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Reflection;
 
-namespace TFMS.Models // Or TFMS.Extensions, ensure it's accessible
+namespace TFMS.Models
 {
     public static class EnumExtensions
     {
-        public static string GetDescription(this Enum enumValue)
+        public static string GetDescription<TEnum>(this TEnum enumeration) where TEnum : Enum
         {
-            FieldInfo? field = enumValue.GetType().GetField(enumValue.ToString());
-            if (field == null) return enumValue.ToString(); // Fallback to string name if no field
-
-            DescriptionAttribute[]? attributes = (DescriptionAttribute[]?)field.GetCustomAttributes(typeof(DescriptionAttribute), false);
-
-            return attributes != null && attributes.Length > 0 ? attributes[0].Description : enumValue.ToString();
+            Type type = enumeration.GetType();
+            MemberInfo[] memInfo = type.GetMember(enumeration.ToString());
+            if (memInfo != null && memInfo.Length > 0)
+            {
+                object[] attrs = memInfo[0].GetCustomAttributes(typeof(DisplayAttribute), false);
+                if (attrs != null && attrs.Length > 0)
+                    return ((DisplayAttribute)attrs[0]).Name ?? enumeration.ToString();
+            }
+            return enumeration.ToString();
         }
     }
 }

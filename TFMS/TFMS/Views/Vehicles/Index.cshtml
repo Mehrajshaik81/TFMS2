@@ -31,16 +31,15 @@
         </div>
         <div class="col-md-2 d-flex justify-content-end">
             <button type="submit" class="btn btn-outline-secondary">Apply Filters</button>
-            <a asp-action="Index" class="btn btn-outline-danger ms-2">Clear Filters</a> @* Clear button *@
+            <a asp-action="Index" class="btn btn-outline-danger ms-2">Clear Filters</a>
         </div>
     </div>
 </form>
 @* --- End Search and Filter Section --- *@
 
-<table class="table table-hover" id="vehiclesTable"> @* Added id="vehiclesTable" and table-hover for better UX *@
+<table class="table table-hover" id="vehiclesTable">
     <thead>
         <tr>
-
             <th data-sort-column="RegistrationNumber" class="cursor-pointer">
                 @Html.DisplayNameFor(model => model.RegistrationNumber) <span class="sort-icon"></span>
             </th>
@@ -113,16 +112,22 @@
 </table>
 
 @section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    } @* Good practice to include *@
     <style>
         .cursor-pointer {
             cursor: pointer;
         }
+
         .sort-icon {
             margin-left: 5px;
         }
+
         .sort-asc::after {
             content: "\25B2"; /* Up arrow */
         }
+
         .sort-desc::after {
             content: "\25BC"; /* Down arrow */
         }
@@ -131,42 +136,36 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const table = document.getElementById('vehiclesTable');
-            if (!table) return; // Exit if table not found
+            if (!table) return;
 
-            const headers = table.querySelectorAll('th[data-sort-column]'); // Get only sortable headers
+            const headers = table.querySelectorAll('th[data-sort-column]');
             const tbody = table.querySelector('tbody');
-            if (!tbody) return; // Exit if tbody not found
+            if (!tbody) return;
 
             let currentSortColumn = null;
-            let currentSortDirection = 'asc'; // 'asc' or 'desc'
+            let currentSortDirection = 'asc';
 
             headers.forEach(header => {
                 header.addEventListener('click', function () {
                     const column = this.dataset.sortColumn;
-                    
-                    // Determine sort direction
+
                     if (currentSortColumn === column) {
                         currentSortDirection = (currentSortDirection === 'asc' ? 'desc' : 'asc');
                     } else {
-                        // Reset direction if new column is clicked
-                        currentSortDirection = 'asc';
+                        currentSortDirection = 'asc'; // Reset direction if new column is clicked
                     }
                     currentSortColumn = column;
 
-                    // Remove existing sort icons
-                    headers.forEach(h => h.querySelector('.sort-icon').textContent = '');
+                    // Remove existing sort icons and classes from all headers
                     headers.forEach(h => {
                         h.classList.remove('sort-asc', 'sort-desc');
                     });
 
-                    // Add new sort icon
-                    const sortIcon = this.querySelector('.sort-icon');
-                    if (sortIcon) {
-                        if (currentSortDirection === 'asc') {
-                            this.classList.add('sort-asc');
-                        } else {
-                            this.classList.add('sort-desc');
-                        }
+                    // Add new sort icon class to the clicked header
+                    if (currentSortDirection === 'asc') {
+                        this.classList.add('sort-asc');
+                    } else {
+                        this.classList.add('sort-desc');
                     }
 
                     sortTable(column, currentSortDirection);
@@ -177,16 +176,14 @@
                 const rows = Array.from(tbody.querySelectorAll('tr'));
 
                 rows.sort((a, b) => {
-                    // Find the correct cell index for the given column name
                     const headerIndex = Array.from(headers).findIndex(h => h.dataset.sortColumn === columnName);
-                    if (headerIndex === -1) return 0; // Should not happen if data-sort-column is correct
+                    if (headerIndex === -1) return 0;
 
                     const cellA = a.children[headerIndex];
                     const cellB = b.children[headerIndex];
 
-                    if (!cellA || !cellB) return 0; // Guard against missing cells
+                    if (!cellA || !cellB) return 0;
 
-                    // Get text content and try to convert to number or date
                     const valA = cellA.textContent.trim();
                     const valB = cellB.textContent.trim();
 
@@ -196,16 +193,13 @@
                     const numA = parseFloat(valA);
                     const numB = parseFloat(valB);
 
-                    // If both are numbers, compare numerically
                     if (!isNaN(numA) && !isNaN(numB)) {
                         comparison = numA - numB;
                     }
-                    // Try to convert to date for date columns
-                    else if (moment && (moment(valA, 'YYYY-MM-DD', true).isValid() || moment(valA, 'MMM DD, YYYY', true).isValid()) &&
-                             (moment(valB, 'YYYY-MM-DD', true).isValid() || moment(valB, 'MMM DD, YYYY', true).isValid()))
-                    {
-                        const dateA = moment(valA).valueOf();
-                        const dateB = moment(valB).valueOf();
+                    // Try to convert to date for date columns (using multiple common formats)
+                    else if (moment && (moment(valA, ['YYYY-MM-DD', 'MMM DD, YYYY'], true).isValid() && moment(valB, ['YYYY-MM-DD', 'MMM DD, YYYY'], true).isValid())) {
+                        const dateA = moment(valA, ['YYYY-MM-DD', 'MMM DD, YYYY'], true).valueOf();
+                        const dateB = moment(valB, ['YYYY-MM-DD', 'MMM DD, YYYY'], true).valueOf();
                         comparison = dateA - dateB;
                     }
                     // Otherwise, compare as strings (case-insensitive)
@@ -221,5 +215,5 @@
             }
         });
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script> @* Added moment.js for robust date parsing *@
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
 }
