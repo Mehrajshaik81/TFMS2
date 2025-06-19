@@ -7,18 +7,26 @@
 <h1>Manage Users</h1>
 
 <p>
-    <a asp-action="CreateUser">Create New User</a>
+    <a asp-action="CreateUser" class="btn btn-primary">Create New User</a> @* Link to CreateUser action *@
 </p>
 
 @if (TempData["SuccessMessage"] != null)
 {
-    <div class="alert alert-success">
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
         @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 }
 
-<table class="table">
-    <thead>
+<table class="table table-hover table-striped shadow-sm rounded overflow-hidden">
+    <thead class="bg-primary text-white">
         <tr>
             <th>
                 @Html.DisplayNameFor(model => model.Email)
@@ -44,7 +52,7 @@
             <th>
                 Roles
             </th>
-            <th></th>
+            <th>Actions</th> @* Changed to "Actions" for clarity *@
         </tr>
     </thead>
     <tbody>
@@ -73,13 +81,33 @@
                     @Html.DisplayFor(modelItem => item.LicenseExpiryDate)
                 </td>
                 <td>
-                    @string.Join(", ", item.Roles)
+                    @if (item.Roles != null && item.Roles.Any())
+                    {
+                        <span>@string.Join(", ", item.Roles)</span>
+                    }
+                    else
+                    {
+                        <span>No Role</span>
+                    }
                 </td>
                 <td>
-                    <a asp-action="EditUser" asp-route-id="@item.Id">Edit</a> |
-                    <a asp-action="DeleteUser" asp-route-id="@item.Id">Delete</a>
+                    <a asp-action="EditUser" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" title="Edit">
+                        <i class="bi bi-pencil-square"></i>
+                    </a> |
+                    <a asp-action="DetailsUser" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info" title="Details">
+                        @* Link to DetailsUser *@
+                        <i class="bi bi-info-circle"></i>
+                    </a> |
+                    <a asp-action="DeleteUser" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" title="Delete">
+                        @* Link to DeleteUser *@
+                        <i class="bi bi-trash"></i>
+                    </a>
                 </td>
             </tr>
         }
     </tbody>
 </table>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"></script>
+}

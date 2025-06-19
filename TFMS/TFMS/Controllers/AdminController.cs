@@ -2,14 +2,19 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering; // For SelectList
+using Microsoft.AspNetCore.Mvc.Rendering; // For SelectList, SelectListItem
 using Microsoft.EntityFrameworkCore; // For ToListAsync
 using TFMS.Models; // Your ApplicationUser model
 using TFMS.ViewModels; // Your UserViewModel
+using System.Collections.Generic; // For List
+using System.Linq; // For LINQ operations
+using System.Threading.Tasks; // For async/await
+using System.Security.Claims; // For ClaimTypes
+using System; // For DateTime
 
-namespace TFMS.Controllers // <<< Your correct namespace for Controllers
+namespace TFMS.Controllers
 {
-    [Authorize(Roles = "Fleet Administrator")] // Only Fleet Administrators can access this controller
+    [Authorize(Roles = "Fleet Administrator")]
     public class AdminController : Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;
@@ -21,7 +26,7 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
             _roleManager = roleManager;
         }
 
-        // GET: Admin/Users
+        // GET: Admin/Users (List Users)
         public async Task<IActionResult> Users()
         {
             var users = await _userManager.Users.ToListAsync();
@@ -29,6 +34,7 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
 
             foreach (var user in users)
             {
+                var roles = await _userManager.GetRolesAsync(user);
                 userViewModels.Add(new UserViewModel
                 {
                     Id = user.Id,
@@ -39,17 +45,52 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
                     IsActiveDriver = user.IsActiveDriver,
                     DrivingLicenseNumber = user.DrivingLicenseNumber,
                     LicenseExpiryDate = user.LicenseExpiryDate,
-                    Roles = await _userManager.GetRolesAsync(user) // Get roles for each user
+                    Roles = roles.ToList()
                 });
             }
             return View(userViewModels);
         }
 
-        // GET: Admin/CreateUser
-        public IActionResult CreateUser()
+        // GET: Admin/DetailsUser/{id}
+        public async Task<IActionResult> DetailsUser(string id)
         {
-            ViewBag.AvailableRoles = new SelectList(_roleManager.Roles.Select(r => r.Name));
-            return View();
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound();
+            }
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            var model = new UserViewModel
+            {
+                Id = user.Id,
+                Email = user.Email ?? "N/A",
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                EmployeeId = user.EmployeeId,
+                IsActiveDriver = user.IsActiveDriver,
+                DrivingLicenseNumber = user.DrivingLicenseNumber,
+                LicenseExpiryDate = user.LicenseExpiryDate,
+                Roles = userRoles.ToList()
+            };
+
+            return View(model);
+        }
+
+
+        // GET: Admin/CreateUser
+        public async Task<IActionResult> CreateUser() // Made async to use await _roleManager.Roles.Select(r => r.Name).ToListAsync();
+        {
+            var model = new UserViewModel();
+            // Materialize role names first
+            var allRoleNames = await _roleManager.Roles.Select(r => r.Name).ToListAsync();
+            model.AvailableRolesList = allRoleNames.Select(rName => new SelectListItem { Text = rName, Value = rName }).ToList();
+            return View(model);
         }
 
         // POST: Admin/CreateUser
@@ -57,14 +98,8 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateUser(UserViewModel model)
         {
-            // Clear password validation if it's empty but model state expects it (e.g. for updates)
-            // For creation, it should be required, so we'll check later
-            if (string.IsNullOrEmpty(model.Password))
-            {
-                ModelState.Remove("Password");
-                ModelState.Remove("ConfirmPassword");
-            }
-
+            // Removed ModelState.Remove for password/confirmPassword for Create action
+            // as they are [Required] and should be validated by ModelState.IsValid.
 
             if (ModelState.IsValid)
             {
@@ -78,25 +113,18 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
                     IsActiveDriver = model.IsActiveDriver,
                     DrivingLicenseNumber = model.DrivingLicenseNumber,
                     LicenseExpiryDate = model.LicenseExpiryDate,
-                    EmailConfirmed = true // Automatically confirm email for admin-created users
+                    EmailConfirmed = true
                 };
 
-                // Password is required for new user creation
-                if (string.IsNullOrEmpty(model.Password))
-                {
-                    ModelState.AddModelError("", "Password is required for new user creation.");
-                    ViewBag.AvailableRoles = new SelectList(_roleManager.Roles.Select(r => r.Name));
-                    return View(model);
-                }
-
-                var result = await _userManager.CreateAsync(user, model.Password);
+                // Password should be guaranteed non-null by [Required] and ModelState.IsValid,
+                // added null-forgiving operator for CreateAsync signature.
+                var result = await _userManager.CreateAsync(user, model.Password!);
 
                 if (result.Succeeded)
                 {
-                    // Assign roles
-                    if (model.Roles != null && model.Roles.Any())
+                    if (model.SelectedRoles != null && model.SelectedRoles.Any())
                     {
-                        await _userManager.AddToRolesAsync(user, model.Roles);
+                        await _userManager.AddToRolesAsync(user, model.SelectedRoles);
                     }
                     TempData["SuccessMessage"] = $"User '{user.Email}' created successfully.";
                     return RedirectToAction(nameof(Users));
@@ -107,7 +135,14 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
                     ModelState.AddModelError(string.Empty, error.Description);
                 }
             }
-            ViewBag.AvailableRoles = new SelectList(_roleManager.Roles.Select(r => r.Name));
+            // Repopulate AvailableRolesList if validation fails
+            var allRoleNamesForFail = await _roleManager.Roles.Select(r => r.Name).ToListAsync(); // Materialize
+            model.AvailableRolesList = allRoleNamesForFail.Select(rName => new SelectListItem
+            {
+                Text = rName,
+                Value = rName,
+                Selected = model.SelectedRoles?.Contains(rName) ?? false // Now safe
+            }).ToList();
             return View(model);
         }
 
@@ -126,7 +161,7 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
             }
 
             var userRoles = await _userManager.GetRolesAsync(user);
-            var allRoles = await _roleManager.Roles.Select(r => r.Name).ToListAsync();
+            var allRoleNames = await _roleManager.Roles.Select(r => r.Name).ToListAsync(); // Already materialized here
 
             var model = new UserViewModel
             {
@@ -138,10 +173,16 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
                 IsActiveDriver = user.IsActiveDriver,
                 DrivingLicenseNumber = user.DrivingLicenseNumber,
                 LicenseExpiryDate = user.LicenseExpiryDate,
-                Roles = userRoles.ToList()
+                Roles = userRoles.ToList(),
+                SelectedRoles = userRoles.ToList(),
+                AvailableRolesList = allRoleNames.Select(rName => new SelectListItem // Operates on in-memory list
+                {
+                    Text = rName,
+                    Value = rName,
+                    Selected = userRoles.Contains(rName) // userRoles is already List<string>, so Contains is safe
+                }).ToList()
             };
 
-            ViewBag.AvailableRoles = new SelectList(allRoles); // All available roles
             return View(model);
         }
 
@@ -150,11 +191,15 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditUser(UserViewModel model)
         {
-            // Passwords are optional for edits, only if provided
-            if (string.IsNullOrEmpty(model.Password))
+            if (string.IsNullOrEmpty(model.Id))
             {
-                ModelState.Remove("Password");
-                ModelState.Remove("ConfirmPassword");
+                return NotFound();
+            }
+
+            if (string.IsNullOrEmpty(model.Password) && string.IsNullOrEmpty(model.ConfirmPassword))
+            {
+                ModelState.Remove(nameof(model.Password));
+                ModelState.Remove(nameof(model.ConfirmPassword));
             }
 
             if (ModelState.IsValid)
@@ -165,9 +210,8 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
                     return NotFound();
                 }
 
-                // Update user properties
                 user.Email = model.Email;
-                user.UserName = model.Email; // Keep UserName and Email in sync for Identity
+                user.UserName = model.Email;
                 user.FirstName = model.FirstName;
                 user.LastName = model.LastName;
                 user.EmployeeId = model.EmployeeId;
@@ -179,15 +223,6 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
 
                 if (result.Succeeded)
                 {
-                    // Update roles
-                    var existingRoles = await _userManager.GetRolesAsync(user);
-                    var rolesToRemove = existingRoles.Except(model.Roles ?? new List<string>());
-                    var rolesToAdd = (model.Roles ?? new List<string>()).Except(existingRoles);
-
-                    await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
-                    await _userManager.AddToRolesAsync(user, rolesToAdd);
-
-                    // Update password if provided
                     if (!string.IsNullOrEmpty(model.Password))
                     {
                         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
@@ -198,9 +233,31 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
                             {
                                 ModelState.AddModelError(string.Empty, error.Description);
                             }
-                            ViewBag.AvailableRoles = new SelectList(_roleManager.Roles.Select(r => r.Name));
+                            // Fix: Materialize all role names first
+                            var allRoleNamesForPwdFail = await _roleManager.Roles.Select(r => r.Name).ToListAsync();
+                            model.AvailableRolesList = allRoleNamesForPwdFail.Select(rName => new SelectListItem
+                            {
+                                Text = rName,
+                                Value = rName,
+                                Selected = model.SelectedRoles?.Contains(rName) ?? false // Now safe
+                            }).ToList();
                             return View(model);
                         }
+                    }
+
+                    var existingRoles = await _userManager.GetRolesAsync(user);
+                    var currentSelectedRoles = model.SelectedRoles ?? new List<string>();
+
+                    var rolesToRemove = existingRoles.Except(currentSelectedRoles).ToList();
+                    var rolesToAdd = currentSelectedRoles.Except(existingRoles).ToList();
+
+                    if (rolesToRemove.Any())
+                    {
+                        await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
+                    }
+                    if (rolesToAdd.Any())
+                    {
+                        await _userManager.AddToRolesAsync(user, rolesToAdd);
                     }
 
                     TempData["SuccessMessage"] = $"User '{user.Email}' updated successfully.";
@@ -212,7 +269,14 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
                     ModelState.AddModelError(string.Empty, error.Description);
                 }
             }
-            ViewBag.AvailableRoles = new SelectList(_roleManager.Roles.Select(r => r.Name));
+            // Fix: Materialize all role names first
+            var allRoleNamesForModelFail = await _roleManager.Roles.Select(r => r.Name).ToListAsync();
+            model.AvailableRolesList = allRoleNamesForModelFail.Select(rName => new SelectListItem
+            {
+                Text = rName,
+                Value = rName,
+                Selected = model.SelectedRoles?.Contains(rName) ?? false // Now safe
+            }).ToList();
             return View(model);
         }
 
@@ -259,6 +323,12 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
                 return NotFound();
             }
 
+            if (user.Id == User.FindFirstValue(ClaimTypes.NameIdentifier)!)
+            {
+                TempData["ErrorMessage"] = "You cannot delete your own account.";
+                return RedirectToAction(nameof(Users));
+            }
+
             var result = await _userManager.DeleteAsync(user);
             if (result.Succeeded)
             {
@@ -270,7 +340,16 @@ namespace TFMS.Controllers // <<< Your correct namespace for Controllers
             {
                 ModelState.AddModelError(string.Empty, error.Description);
             }
-            return View("DeleteUser", new UserViewModel { Id = id, Email = user.Email ?? "N/A" }); // Pass model to re-render view with errors
+            var userViewModelForError = new UserViewModel
+            {
+                Id = user.Id,
+                Email = user.Email ?? "N/A",
+            };
+            var userRolesForError = await _userManager.GetRolesAsync(user);
+            userViewModelForError.Roles = userRolesForError.ToList();
+
+            TempData["ErrorMessage"] = "Error deleting user: " + string.Join(", ", result.Errors.Select(e => e.Description));
+            return View("DeleteUser", userViewModelForError);
         }
     }
 }

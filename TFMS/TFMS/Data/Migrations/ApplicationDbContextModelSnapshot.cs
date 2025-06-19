@@ -406,7 +406,6 @@ namespace TFMS.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ScheduledStartTime")
-                        .IsRequired()
                         .HasColumnType("datetime2");
 
                     b.Property<string>("StartLocation")
