@@ -3,3 +3,6 @@
 ################################################################################
 
 /TFMS/.vs
+/TFMS/TFMS/Data/Migrations/00000000000000_CreateIdentitySchema.cs
+/.vs
+/TFMS/TFMS/Migrations
